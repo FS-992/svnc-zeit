@@ -1021,7 +1021,7 @@ function aVac() {
   const applied0 = new Set((D.snap && D.snap.applied) || []);
   const cxHtml = D.vacReqs.filter(cxAsk).sort((a, b) => a.from < b.from ? -1 : 1).map(r => `<div class="req"><div class="rq-h"><div style="display:flex;gap:12px;align-items:center"><div class="av" style="width:44px;height:44px;font-size:17px">${esc(r.name.slice(0, 1))}</div><div><div class="t" style="font-size:17px;font-weight:600">${esc(r.name)}</div><div class="d">${span(r)} · <b>${nf(sumV(reqDays(r)))} Arbeitstage</b> · angefragt ${dfmt(dkey(r.cx.ts))}</div></div></div></div>
       ${r.cx.note ? `<div class="small" style="margin-top:8px">Grund: „${esc(r.cx.note)}“</div>` : ''}
-      ${applied0.has(r.id) ? '<div class="note" style="margin-top:10px">Schon im Monatsplan der Personalplanung eingetragen. Bei Bestätigung dort bitte wieder austragen.</div>' : ''}
+      ${applied0.has(r.id) ? '<div class="note" style="margin-top:10px">Schon im Monatsplan der Personalplanung eingetragen. Bei Bestätigung wird er dort beim nächsten „Stempelzeiten abholen“ automatisch wieder entfernt (außer der Monat ist dort abgeschlossen).</div>' : ''}
       <div class="btns" style="margin-top:12px"><input type="text" id="rr-${r.id}" placeholder="Antwort (optional)" style="flex:1;min-width:180px"><button class="btn danger" onclick="vacCxNo('${r.id}')">Ablehnen</button><button class="btn pri ok" onclick="vacDecide('${r.id}','cancelled')">Stornierung bestätigen</button></div></div>`).join('');
   const ys = vacYears();
   const konten = D.team.map(m => ys.map((y, i) => { const a = acct(m.p, y);
@@ -1042,7 +1042,7 @@ function vacDecide(id, st) {
   if (st === 'cancelled' && r.cx && r.cx.st === 'ask') r.cx.st = 'done';
   r.status = st; r.reason = reason; r.decided = Date.now(); r.seen = 0; r.rev = (r.rev || 1) + 1;
   logx(`Urlaub ${r.name} ${span(r)}: ${VST[st][0]}${reason ? ' – ' + reason : ''}`); store(true); admin('vac');
-  if (wasApplied) alert(`Bitte ${r.name} (${span(r)}) in der Personalplanung wieder aus dem Monatsplan austragen. Dort ist der Urlaub bereits eingetragen.`);
+  if (wasApplied) alert(`Der Urlaub von ${r.name} (${span(r)}) ist in der Personalplanung schon eingetragen. Er wird dort beim nächsten „Stempelzeiten abholen“ automatisch entfernt, außer der Monat ist abgeschlossen.`);
 }
 function vacCxNo(id) {
   const r = D.vacReqs.find(x => x.id === id); if (!r || !cxAsk(r)) return; const inp = $('#rr-' + id), reason = inp ? inp.value.trim() : '';
