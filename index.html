@@ -417,6 +417,7 @@ async function odGraph(path, opt = {}, retry = true) {
   return r;
 }
 function odQueue(ms = 1500) { if (!odConnected()) return; clearTimeout(OD.timer); OD.timer = setTimeout(odSync, ms); }
+async function odErrCode(r) { try { const j = await r.clone().json(), e = j && j.error; return e ? ', ' + (e.code || e.message || '') : ''; } catch (e) { return ''; } }
 async function odSync() {
   if (!odConnected() || OD.busy) return;
   if (!navigator.onLine) { OD.err = 'kein Internet'; refreshChrome(); return; }
@@ -433,9 +434,11 @@ async function odSync() {
       } else if (mr.status !== 404) throw new Error('OneDrive-Fehler ' + mr.status);
       if (D.unsynced || mr.status === 404) {
         const u = D.unsynced || 0;
-        const pr = await odGraph(':/content', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(etag ? { 'If-Match': etag } : {}) }, body: JSON.stringify(exportData()) });
+        const putBody = JSON.stringify(exportData());
+        let pr = await odGraph(':/content', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(etag ? { 'If-Match': etag } : {}) }, body: putBody });
+        if (pr.status === 404 && etag) pr = await odGraph(':/content', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: putBody });
         if (pr.status === 412 || pr.status === 409) continue;
-        if (!pr.ok) throw new Error('Speichern fehlgeschlagen (' + pr.status + ')');
+        if (!pr.ok) throw new Error('Speichern fehlgeschlagen (' + pr.status + (await odErrCode(pr)) + (etag ? ', mit Version' : ', neue Datei') + ')');
         D.unsynced = Math.max(0, (D.unsynced || 0) - u); D.lastExport = Date.now();
       }
       OD.cfg.last = Date.now(); OD.err = ''; odSave(); store();
