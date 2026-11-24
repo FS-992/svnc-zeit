@@ -589,10 +589,38 @@ function setupAdmin() {
   pinPad('Admin-PIN festlegen', '6-stellige PIN für die Salonleitung', v1 => { pinPad('Admin-PIN bestätigen', 'Zur Bestätigung noch einmal', async v2 => {
     if (v1 !== v2) return 'Nicht gleich, bitte neu beginnen'; D.admin = await hash('admin:' + v1); logx('Admin-PIN festgelegt'); store(); admin('team'); }, 6); }, 6);
 }
+/* ---------- Fingerabdruck / Gerätesperre (WebAuthn, nur lokal auf diesem Gerät) ---------- */
+const bio64 = { enc: b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+  dec: t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)) };
+let BIO_OK = false;
+(async () => { try { BIO_OK = !!(window.isSecureContext && window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) {} })();
+async function bioEnable() {
+  try {
+    const c = await navigator.credentials.create({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp: { name: 'SVNC Zeiterfassung', id: location.hostname }, user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'salonleitung', displayName: 'Salonleitung' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' }, timeout: 60000, attestation: 'none' } });
+    D.bio = bio64.enc(c.rawId); logx('Fingerabdruck-Anmeldung aktiviert'); store(); return true;
+  } catch (e) { return false; }
+}
+async function bioCheck() {
+  if (!D.bio) return false;
+  try { await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rpId: location.hostname,
+    allowCredentials: [{ type: 'public-key', id: bio64.dec(D.bio), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } }); return true; } catch (e) { return false; }
+}
+async function bioLogin() { if (await bioCheck()) { D.fails.admin = { n: 0 }; store(); admin('status'); } }
+async function bioOn() { const ok = await bioEnable(); A.bioMsg = ok ? '' : 'Einrichtung abgebrochen oder auf diesem Gerät nicht möglich.'; A.tech = true; admin('status'); }
+function bioOff() { D.bio = ''; logx('Fingerabdruck-Anmeldung ausgeschaltet'); store(); A.bioMsg = ''; A.tech = true; admin('status'); }
+function bioRow() {
+  if (!BIO_OK) return '';
+  return `<div class="row"><div><div class="t">Fingerabdruck-Anmeldung</div><div class="d">${A.bioMsg ? esc(A.bioMsg) : D.bio ? 'Aktiv auf diesem Gerät. Die PIN funktioniert weiterhin.' : 'Salonleitung per Fingerabdruck oder Gerätesperre öffnen, statt PIN einzutippen.'}</div></div>${D.bio ? '<button class="btn danger" onclick="bioOff()">Ausschalten</button>' : '<button class="btn pri" onclick="bioOn()">Einrichten</button>'}</div>`;
+}
 function askAdmin() {
   if (!D.admin) return setupAdmin();
+  const bio = !!(D.bio && BIO_OK);
   pinPad('Salonleitung', 'Admin-PIN eingeben', async v => { const lk = locked('admin'); if (lk) return `Zu viele Versuche. Bitte ${lk} Sek. warten.`;
     if (await hash('admin:' + v) !== D.admin) { fail('admin'); return 'PIN falsch'; } D.fails.admin = { n: 0 }; store(); admin('status'); }, 6);
+  if (bio) { const bx = $('#modal .box'); if (bx) bx.insertAdjacentHTML('beforeend', '<button class="btn" style="width:100%;margin-top:14px" onclick="bioLogin()">Fingerabdruck verwenden</button>'); setTimeout(bioLogin, 300); }
 }
 function admin(tab) {
   if (tab) A.tab = tab;
@@ -632,7 +660,7 @@ function aStatus() {
     <div class="kpi" onclick="admin('vac')" style="cursor:pointer"><div class="l">Urlaub</div><div class="v" style="color:${np ? 'var(--accent)' : 'var(--ink)'}">${np || 'Keine'} <span style="font-size:13px;font-weight:500;color:var(--muted)">offen</span></div></div></div>
    <div class="gt">Heute im Salon</div><div class="group">${crew}</div>
    <div class="gt">Tages-Ende-Check</div><div class="group">${list || `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ok"></span><div class="t">Alle Schichten sauber geschlossen</div></div></div>`}</div>
-   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}</div></details>`;
+   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}${bioRow()}</div></details>`;
 }
 function aFix() {
   const t = today(), y = yesterday();
