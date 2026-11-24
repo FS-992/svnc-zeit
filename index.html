@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#171718" media="(prefers-color-scheme: dark)">
 <title>SVNC Zeiterfassung</title>
+<script>try{var t=localStorage.getItem('svnc_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <!-- App-Icon & Web-App-Manifest (SVNC Zeit) – Icons eingebettet, keine externen Dateien -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -23,18 +24,25 @@
   --accent:#18181A;--accent-2:#2E2E31;--accent-soft:#FCEEE8;--on-accent:#FFFFFF;--coral:#EF9E85;
   --ok:#1F7A3A;--ok-dot:#34C759;--ok-soft:#E9F8EE;--warn:#9A4A00;--warn-dot:#FF9500;--warn-soft:#FFF4E5;--bad:#C4001A;--bad-dot:#FF3B30;--bad-soft:#FFECEE;
   --info:#0A5DC2;--info-soft:#E8F1FD;
-  --shadow:0 1px 2px rgba(24,24,26,.04),0 8px 28px rgba(24,24,26,.06);--shadow-lg:0 24px 70px rgba(24,24,26,.28);
-  --r:26px;--r-sm:14px;color-scheme:light;
+  --shadow:0 1px 2px rgba(24,24,26,.04),0 8px 28px rgba(24,24,26,.06);--shadow-lg:0 24px 70px rgba(24,24,26,.28);color-scheme:light;
+  --r:26px;--r-sm:14px;
 }
-@media (prefers-color-scheme:dark){:root{
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --bg:#121213;--card:#1C1C1E;--card2:#252527;--ink:#F4F4F4;--text:#D4D4D8;--muted:#A0A0A8;--line:rgba(255,255,255,.11);
   --head:#171718;--head-text:#F4F4F4;--head-muted:#A0A0A8;
   --accent:#F4F4F4;--accent-2:#FFFFFF;--accent-soft:rgba(239,158,133,.18);--on-accent:#18181A;--coral:#EF9E85;
   --ok:#5BE584;--ok-dot:#30D158;--ok-soft:rgba(48,209,88,.14);--warn:#FFB340;--warn-dot:#FF9F0A;--warn-soft:rgba(255,159,10,.15);--bad:#FF6961;--bad-dot:#FF453A;--bad-soft:rgba(255,69,58,.15);
   --info:#64A8FF;--info-soft:rgba(10,132,255,.16);
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);--shadow-lg:0 24px 70px rgba(0,0,0,.6);
-  color-scheme:dark;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);--shadow-lg:0 24px 70px rgba(0,0,0,.6);color-scheme:dark;
 }}
+:root[data-theme=dark]{
+  --bg:#121213;--card:#1C1C1E;--card2:#252527;--ink:#F4F4F4;--text:#D4D4D8;--muted:#A0A0A8;--line:rgba(255,255,255,.11);
+  --head:#171718;--head-text:#F4F4F4;--head-muted:#A0A0A8;
+  --accent:#F4F4F4;--accent-2:#FFFFFF;--accent-soft:rgba(239,158,133,.18);--on-accent:#18181A;--coral:#EF9E85;
+  --ok:#5BE584;--ok-dot:#30D158;--ok-soft:rgba(48,209,88,.14);--warn:#FFB340;--warn-dot:#FF9F0A;--warn-soft:rgba(255,159,10,.15);--bad:#FF6961;--bad-dot:#FF453A;--bad-soft:rgba(255,69,58,.15);
+  --info:#64A8FF;--info-soft:rgba(10,132,255,.16);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);--shadow-lg:0 24px 70px rgba(0,0,0,.6);color-scheme:dark;
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;overscroll-behavior:none;touch-action:manipulation}
 button,input,select{font-family:inherit}
@@ -45,7 +53,8 @@ header{position:sticky;top:0;z-index:10;background:var(--head);-webkit-backdrop-
 header{background:linear-gradient(to bottom,#18181A 0,#18181A env(safe-area-inset-top),var(--head) env(safe-area-inset-top));box-shadow:0 1px 0 rgba(24,24,26,.06),0 8px 24px rgba(24,24,26,.05)}
 .logo-img{height:54px;width:auto;display:block;flex:none}.brand-sub{font-size:13.5px;color:var(--head-muted);padding-left:14px;border-left:1px solid var(--line);line-height:1.2}
 .gear{background:rgba(24,24,26,.06)}
-@media (prefers-color-scheme:dark){.gear{background:rgba(255,255,255,.10)}.logo-img{background:#fff;border-radius:12px;padding:3px 9px}}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .gear{background:rgba(255,255,255,.10)}:root:not([data-theme=light]) .logo-img{background:#fff;border-radius:12px;padding:3px 9px;filter:brightness(.8)}}
+:root[data-theme=dark] .gear{background:rgba(255,255,255,.10)}:root[data-theme=dark] .logo-img{background:#fff;border-radius:12px;padding:3px 9px;filter:brightness(.8)}
 .logo{height:44px;padding:0 13px;border-radius:12px;display:grid;place-items:center;flex:none;background:linear-gradient(180deg,#1E2740,#0B101C);box-shadow:inset 0 0 0 1px rgba(227,203,170,.28),0 2px 10px rgba(0,0,0,.35)}.logo span{font-family:"Lora","Iowan Old Style","Palatino","Georgia",serif;font-weight:600;font-size:17px;letter-spacing:.08em;background:linear-gradient(180deg,#F6EBDC,#E3CBAA 55%,#C4A27A);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
 .brand b{display:block;font-size:17px;font-weight:600;letter-spacing:-.01em}
 .brand small{display:block;font-size:12.5px;color:var(--head-muted);margin-top:1px}
@@ -180,7 +189,7 @@ tr.sum td{font-weight:700;border-top:2px solid var(--line)}
 .kpi .l{font-size:12.5px;color:var(--muted);font-weight:500}.kpi .v{font-size:24px;font-weight:700;color:var(--ink);margin-top:4px;letter-spacing:-.01em}
 .filebtn{position:relative;overflow:hidden}.filebtn input{position:absolute;inset:0;opacity:0}
 @media (max-width:700px), (max-height:500px) and (pointer:coarse){
-  header{padding:calc(env(safe-area-inset-top) + 10px) 16px 10px}.brand small{display:none}.logo-img{height:40px}.brand-sub{display:none}.group .mtab th{font-size:10.5px;letter-spacing:0}.group .mtab th:nth-child(9),.group .mtab td:nth-child(9){display:none}.brand b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand{min-width:0}.brand>div:last-child{min-width:0}.logo{height:38px;padding:0 10px}.logo span{font-size:15px}.date{white-space:nowrap}.hright{gap:12px;flex:none}.clock{font-size:28px}.date{font-size:11.5px}.gear{width:40px;height:40px}
+  header{padding:calc(env(safe-area-inset-top) + 10px) 16px 10px}.brand small{display:none}.logo-img{height:40px}.brand-sub{display:none}.group .mtab th{font-size:10.5px;letter-spacing:0}.group .mtab th:nth-child(2),.group .mtab td:nth-child(2),.group .mtab th:nth-child(10),.group .mtab td:nth-child(10){display:none}.brand b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand{min-width:0}.brand>div:last-child{min-width:0}.logo{height:38px;padding:0 10px}.logo span{font-size:15px}.date{white-space:nowrap}.hright{gap:12px;flex:none}.clock{font-size:28px}.date{font-size:11.5px}.gear{width:40px;height:40px}
   main{padding:16px 14px 10px}.greet h1{font-size:24px}.greet span{font-size:13px}
   .tiles{grid-template-columns:1fr 1fr;gap:12px}.tile{min-height:150px;padding:16px;border-radius:18px}.tile .top{gap:10px}.tile .av{width:40px;height:40px;font-size:17px}.tile .nm{font-size:18px}.live{font-size:24px}.pill{font-size:11.5px;padding:6px 9px;white-space:nowrap;gap:6px}.tile .rl{font-size:12px}
   .modal{padding:10px;align-items:flex-end}.box{padding:22px 18px calc(env(safe-area-inset-bottom) + 18px);border-radius:24px;max-height:calc(100vh - 20px)}.box h3{font-size:22px}
@@ -196,7 +205,7 @@ tr.sum td{font-weight:700;border-top:2px solid var(--line)}
   .row{flex-wrap:wrap}.row>div{min-width:0}
   .group{max-width:100%}
   .mtab th,.mtab td{padding-left:5px;padding-right:5px;font-size:13.5px}
-  .mtab th:nth-child(4),.mtab td:nth-child(4),.mtab th:nth-child(5),.mtab td:nth-child(5),.mtab th:nth-child(8),.mtab td:nth-child(8){display:none}
+  .mtab th:nth-child(4),.mtab td:nth-child(4),.mtab th:nth-child(5),.mtab td:nth-child(5),.mtab th:nth-child(9),.mtab td:nth-child(9){display:none}
   .mtab .btn{padding:7px 10px;font-size:13px}
   .seg button{padding:10px 12px}
 }
@@ -258,7 +267,7 @@ let D;
 function load() {
   try { D = JSON.parse(localStorage.getItem(LS)) || null; } catch (e) { D = null; }
   if (!D) D = { team: [], pins: {}, admin: '', salt: rnd(16), events: [], device: 'iPad-' + rnd(4), lastExport: 0, fails: {} };
-  D.fails = D.fails || {}; D.log = D.log || []; D.unsynced = D.unsynced || 0; D.hours = D.hours || null; D.vacReqs = D.vacReqs || []; D.vacAdj = D.vacAdj || {};
+  D.fails = D.fails || {}; D.log = D.log || []; D.unsynced = D.unsynced || 0; D.hours = D.hours || null; D.vacReqs = D.vacReqs || []; D.vacAdj = D.vacAdj || {}; D.sick = D.sick || [];
 }
 function store(changed) { if (changed) D.unsynced = (D.unsynced || 0) + 1; try { localStorage.setItem(LS, JSON.stringify(D)); } catch (e) { alert('Speichern auf diesem Gerät nicht möglich!'); } if (changed) autoQueue(); }
 function dropIpadAdj(a) { const o = {}; Object.entries(a || {}).forEach(([p, ys]) => Object.entries(ys || {}).forEach(([y, l]) => { const k = (l || []).filter(c => c.src !== 'ipad'); if (k.length) ((o[p] = o[p] || {})[y] = k); })); return o; }
@@ -331,7 +340,7 @@ const AUTO = { handle: null, ok: false, last: 0, err: '', timer: null, name: '' 
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open('svnc_zeit', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbSet(k, v) { const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); if (v == null) tx.objectStore('kv').delete(k); else tx.objectStore('kv').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
 async function idbGet(k) { const db = await idb(); return new Promise((res, rej) => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj });
+const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj, sick: D.sick });
 async function autoInit() {
   if (!FS_OK) return;
   try { const h = await idbGet('handle'); if (!h) return; AUTO.handle = h; AUTO.name = h.name;
@@ -609,6 +618,20 @@ function setupAdmin() {
   pinPad('Admin-PIN festlegen', '6-stellige PIN für die Salonleitung', v1 => { pinPad('Admin-PIN bestätigen', 'Zur Bestätigung noch einmal', async v2 => {
     if (v1 !== v2) return 'Nicht gleich, bitte neu beginnen'; D.admin = await hash('admin:' + v1); logx('Admin-PIN festgelegt'); store(); admin('team'); }, 6); }, 6);
 }
+/* ---------- Darstellung: Automatisch / Hell / Dunkel (nur dieses Gerät) ---------- */
+function themeGet() { try { const t = localStorage.getItem('svnc_theme'); return t === 'light' || t === 'dark' ? t : 'auto'; } catch (e) { return 'auto'; } }
+function themeSet(t) {
+  try { if (t === 'auto') localStorage.removeItem('svnc_theme'); else localStorage.setItem('svnc_theme', t); } catch (e) {}
+  const r = document.documentElement; if (t === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', t);
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
+  const add = (c, media) => { const m = document.createElement('meta'); m.name = 'theme-color'; m.content = c; if (media) m.media = media; document.head.appendChild(m); };
+  if (t === 'light') add('#FFFFFF'); else if (t === 'dark') add('#171718'); else { add('#FFFFFF', '(prefers-color-scheme: light)'); add('#171718', '(prefers-color-scheme: dark)'); }
+  A.tech = true; admin(A.tab);
+}
+function themeRow() {
+  const t = themeGet();
+  return `<div class="row"><div><div class="t">Darstellung</div><div class="d">Gilt nur für dieses Gerät.</div></div><div class="seg" style="min-width:240px">${[['auto', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']].map(([k, l]) => `<button class="${t === k ? 'on' : ''}" onclick="themeSet('${k}')">${l}</button>`).join('')}</div></div>`;
+}
 /* ---------- Fingerabdruck / Gerätesperre (WebAuthn, nur lokal auf diesem Gerät) ---------- */
 const bio64 = { enc: b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
   dec: t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)) };
@@ -645,8 +668,8 @@ function askAdmin() {
 function admin(tab) {
   if (tab) A.tab = tab;
   const np = vacOpenN();
-  const tabs = [['status', 'Heute'], ['vac', 'Urlaub' + (np ? `<span class="cnt">${np}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']].filter(t => !(PHONE && t[0] === 'team' && D.team.length));
-  const body = { status: aStatus, vac: aVac, fix: aFix, month: aMonth, team: aTeam, log: aLog }[A.tab]();
+  const tabs = [['status', 'Heute'], ['vac', 'Urlaub' + (np ? `<span class="cnt">${np}</span>` : '')], ['sick', 'Krank'], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']].filter(t => !(PHONE && t[0] === 'team' && D.team.length));
+  const body = { status: aStatus, vac: aVac, sick: aSick, fix: aFix, month: aMonth, team: aTeam, log: aLog }[A.tab]();
   modal(`<div class="ahead"><h3>Salonleitung</h3><button class="btn" onclick="home()">Fertig</button></div>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${A.tab === k ? 'on' : ''}" onclick="admin('${k}')">${l}</button>`).join('')}</div>${body}`, true);
   idle(240); refreshChrome();
@@ -669,6 +692,7 @@ function aStatus() {
     if (st === 'work') { dot = 'ok'; txt = 'im Salon seit ' + hm(sm.b); }
     else if (st === 'pause') { dot = 'warn'; txt = 'in Pause'; }
     else if (st === 'gone') { txt = 'gegangen um ' + hm(sm.e) + (sm.net != null ? ' · ' + hmin(sm.net) + ' Std.' : ''); }
+    else if (sickDaysMap(m.p)[t]) txt = sickDaysMap(m.p)[t] === 1 ? 'krank' : '½ Tag krank';
     else if (vacDaysMap(m.p)[t]) txt = vacDaysMap(m.p)[t] === 1 ? 'Urlaub' : '½ Tag Urlaub';
     else if (!isWork(m, t)) txt = 'heute frei';
     else txt = 'nicht eingestempelt';
@@ -680,7 +704,7 @@ function aStatus() {
     <div class="kpi" onclick="admin('vac')" style="cursor:pointer"><div class="l">Urlaub</div><div class="v" style="color:${np ? 'var(--accent)' : 'var(--ink)'}">${np || 'Keine'} <span style="font-size:13px;font-weight:500;color:var(--muted)">offen</span></div></div></div>
    <div class="gt">Heute im Salon</div><div class="group">${crew}</div>
    <div class="gt">Tages-Ende-Check</div><div class="group">${list || `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ok"></span><div class="t">Alle Schichten sauber geschlossen</div></div></div>`}</div>
-   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}${bioRow()}</div></details>`;
+   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}${themeRow()}${bioRow()}</div></details>`;
 }
 function aFix() {
   const t = today(), y = yesterday();
@@ -718,17 +742,17 @@ function fixAdd() {
 }
 function aMonth() {
   if (!A.ym) A.ym = today().slice(0, 7);
-  const [Y, M] = A.ym.split('-').map(Number), n = new Date(Y, M, 0).getDate(); let tot = { d: 0, net: 0, pm: 0, open: 0, fix: 0, u: 0 };
-  const rows = D.team.map(m => { let d = 0, net = 0, pm = 0, open = 0, fix = 0; const u = vacInMonth(m.p, A.ym); tot.u += u;
+  const [Y, M] = A.ym.split('-').map(Number), n = new Date(Y, M, 0).getDate(); let tot = { d: 0, net: 0, pm: 0, open: 0, fix: 0, u: 0, sk: 0 };
+  const rows = D.team.map(m => { let d = 0, net = 0, pm = 0, open = 0, fix = 0; const u = vacInMonth(m.p, A.ym), sk = sickInMonth(m.p, A.ym); tot.u += u; tot.sk += sk;
     for (let k = 1; k <= n; k++) { const day = A.ym + '-' + p2(k), s = daySum(m.p, day, Date.now()); if (!s.n) continue; d++;
       if (s.e == null && day !== today()) open++; else { net += s.net || 0; pm += s.pm; }
       fix += D.events.filter(e => e.p === m.p && e.src === 'admin' && dkey(e.ots || e.ts) === day).length; }
     tot.d += d; tot.net += net; tot.pm += pm; tot.open += open; tot.fix += fix;
-    return `<tr><td><b>${esc(m.name)}</b></td><td class="r">${d}</td><td class="r"><b>${hmin(net)}</b></td><td class="r">${dec1(net / 60)}</td><td class="r">${hmin(pm)}</td><td class="r">${u ? nf(u) : '–'}</td><td class="r" style="${open ? 'color:var(--bad);font-weight:700' : ''}">${open || '–'}</td><td class="r">${fix || '–'}</td><td class="r"><button class="btn" onclick="nachweisPrint(${m.p})">PDF</button></td></tr>`; }).join('');
+    return `<tr><td><b>${esc(m.name)}</b></td><td class="r">${d}</td><td class="r"><b>${hmin(net)}</b></td><td class="r">${dec1(net / 60)}</td><td class="r">${hmin(pm)}</td><td class="r">${u ? nf(u) : '–'}</td><td class="r">${sk ? nf(sk) : '–'}</td><td class="r" style="${open ? 'color:var(--bad);font-weight:700' : ''}">${open || '–'}</td><td class="r">${fix || '–'}</td><td class="r"><button class="btn" onclick="nachweisPrint(${m.p})">PDF</button></td></tr>`; }).join('');
   return `<div class="ahead" style="margin:20px 0 6px"><div class="mnav"><button class="btn" onclick="A.ym=shiftYm(A.ym,-1);admin()">‹</button><b>${MONTHS[M - 1]} ${Y}</b><button class="btn" onclick="A.ym=shiftYm(A.ym,1);admin()">›</button></div><div class="btns" style="margin:0"><button class="btn" onclick="nachweisPrint()">Stundennachweise (PDF)</button><button class="btn" onclick="monthCsv()">CSV exportieren</button></div></div>
-   <div class="group" style="padding:4px 14px"><table class="mtab"><tr><th>Mitarbeiter(in)</th><th class="r">Tage</th><th class="r">Netto (Std:Min)</th><th class="r">Netto (dezimal)</th><th class="r">Pausen</th><th class="r">Urlaub</th><th class="r">Offen</th><th class="r">Korr.</th><th></th></tr>${rows}
-   <tr class="sum"><td>Gesamt</td><td class="r">${tot.d}</td><td class="r">${hmin(tot.net)}</td><td class="r">${dec1(tot.net / 60)}</td><td class="r">${hmin(tot.pm)}</td><td class="r">${tot.u ? nf(tot.u) : '–'}</td><td class="r">${tot.open || '–'}</td><td class="r">${tot.fix || '–'}</td><td></td></tr></table></div>
-   <p class="small">Netto = Anwesenheit minus Pausen, Di–Fr inkl. der festen Mittagspause 13–14 Uhr. Urlaub = Urlaubstage laut Personalplanung plus hier genehmigte Anträge. Tage ohne „Gehen“ (Offen) zählen nicht mit, bitte vorher korrigieren. Als Lohnvorbereitung gedacht. Maßgeblich bleibt die Personalplanung bzw. die Lohnabrechnung.</p>`;
+   <div class="group" style="padding:4px 14px"><table class="mtab"><tr><th>Mitarbeiter(in)</th><th class="r">Tage</th><th class="r">Netto (Std:Min)</th><th class="r">Netto (dezimal)</th><th class="r">Pausen</th><th class="r">Urlaub</th><th class="r">Krank</th><th class="r">Offen</th><th class="r">Korr.</th><th></th></tr>${rows}
+   <tr class="sum"><td>Gesamt</td><td class="r">${tot.d}</td><td class="r">${hmin(tot.net)}</td><td class="r">${dec1(tot.net / 60)}</td><td class="r">${hmin(tot.pm)}</td><td class="r">${tot.u ? nf(tot.u) : '–'}</td><td class="r">${tot.sk ? nf(tot.sk) : '–'}</td><td class="r">${tot.open || '–'}</td><td class="r">${tot.fix || '–'}</td><td></td></tr></table></div>
+   <p class="small">Netto = Anwesenheit minus Pausen, Di–Fr inkl. der festen Mittagspause 13–14 Uhr. Urlaub = Urlaubstage laut Personalplanung plus hier genehmigte Anträge. Tage ohne „Gehen“ (Offen) zählen nicht mit, bitte vorher korrigieren. Krank = eingetragene Kranktage (nicht in der Arbeitszeit enthalten). Als Lohnvorbereitung gedacht. Maßgeblich bleibt die Personalplanung bzw. die Lohnabrechnung.</p>`;
 }
 function vacDaysMap(p) { // Datum -> 1 / 0,5 (Personalplanung + genehmigt, noch nicht eingetragen)
   const mp = {}, sn = D.snap || {}, applied = new Set(sn.applied || []), m = D.team.find(x => x.p === p) || {};
@@ -737,32 +761,72 @@ function vacDaysMap(p) { // Datum -> 1 / 0,5 (Personalplanung + genehmigt, noch 
   return mp;
 }
 function vacInMonth(p, ym) { const mp = vacDaysMap(p); return Object.entries(mp).filter(([d]) => d.startsWith(ym)).reduce((s, [, v]) => s + v, 0); }
+
+/* ---------- Krank (nur Salonleitung; ganze und halbe Tage, keine Gründe) ---------- */
+function sickDaysMap(p) { // Datum -> 1 / 0,5 (nur Arbeitstage laut Plan)
+  const mp = {}, m = D.team.find(x => x.p === p) || {};
+  (D.sick || []).forEach(r => { if (r.p !== p || r.del) return; for (let d = r.from; d <= r.to; d = addDay(d, 1)) if (isWork(m, d)) mp[d] = Math.max(mp[d] || 0, r.half ? 0.5 : 1); });
+  return mp;
+}
+function sickInMonth(p, ym) { return Object.entries(sickDaysMap(p)).filter(([d]) => d.startsWith(ym)).reduce((s, [, v]) => s + v, 0); }
+function sickCount(r) { const m = D.team.find(x => x.p === r.p) || {}; let n = 0; for (let d = r.from; d <= r.to; d = addDay(d, 1)) if (isWork(m, d)) n += r.half ? 0.5 : 1; return n; }
+function aSick() {
+  const t = today(), y = t.slice(0, 4), lim = addDay(t, -120);
+  if (A.p == null || !D.team.some(m => m.p === A.p)) A.p = D.team.length ? D.team[0].p : null;
+  if (A.p == null) return '<div class="note info" style="margin-top:18px">Zuerst ein Team laden.</div>';
+  const list = (D.sick || []).filter(r => !r.del && r.to >= lim).sort((a, b) => b.from.localeCompare(a.from));
+  const rows = list.map(r => `<div class="row"><div><div class="t">${esc(r.name)} · ${esc(span(r))}</div><div class="d">${nf(sickCount(r))} ${sickCount(r) === 1 ? 'Arbeitstag' : 'Arbeitstage'}</div></div><button class="btn danger" onclick="sickDel('${r.id}')">Entfernen</button></div>`).join('');
+  const sums = D.team.map(m => { const n = Object.entries(sickDaysMap(m.p)).filter(([d]) => d.startsWith(y)).reduce((s, [, v]) => s + v, 0); return `<div class="row"><div class="t">${esc(m.name)}</div><div class="d" style="margin:0">${n ? nf(n) + (n === 1 ? ' Tag' : ' Tage') : '–'}</div></div>`; }).join('');
+  return `<div class="gt">Mitarbeiter(in)</div><div class="seg" style="margin-top:8px">${D.team.map(x => `<button class="${x.p === A.p ? 'on' : ''}" onclick="A.p=${x.p};admin()">${esc(x.name)}</button>`).join('')}</div>
+   <div class="gt">Krank eintragen</div><div class="group">
+    <div class="row"><div class="btns"><label class="small">von <input type="date" id="sk-from" value="${A.sf || t}" onchange="A.sf=this.value"></label><label class="small">bis <input type="date" id="sk-to" value="${A.st || A.sf || t}" onchange="A.st=this.value"></label></div></div>
+    <div class="row"><label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sk-half"> Halber Tag (nur bei einem einzelnen Tag)</label><button class="btn pri" onclick="sickAdd()">Eintragen</button></div>
+    <div class="small" id="sk-err" style="color:var(--bad);padding:0 14px 10px"></div></div>
+   <div class="gt">Eintragungen (letzte 120 Tage und kommende)</div><div class="group">${rows || '<div class="row"><div class="small">Keine Einträge.</div></div>'}</div>
+   <div class="gt">Kranktage ${y}</div><div class="group">${sums}</div>
+   <p class="small">Es wird nur festgehalten, dass jemand krank war (ganze oder halbe Tage), keine Gründe. Die Einträge sehen nur Salonleitung und, im eigenen Stundennachweis, die betroffene Person. Krankheitstage zählen nicht zur Arbeitszeit.</p>`;
+}
+function sickAdd() {
+  const f = $('#sk-from').value, e = $('#sk-to').value || f, half = $('#sk-half').checked, m = D.team.find(x => x.p === A.p), err = x => { $('#sk-err').textContent = x; };
+  if (!m) return; if (!f) return err('Bitte das Datum wählen.'); if (e < f) return err('„Bis“ liegt vor „von“.');
+  if (half && e !== f) return err('Ein halber Tag geht nur für einen einzelnen Tag.');
+  if (addDay(f, 62) < e) return err('Bitte höchstens 60 Tage auf einmal eintragen.');
+  const r = { id: rnd(8), p: A.p, name: m.name, from: f, to: e, half, ts: Date.now(), rev: 1 };
+  if (!sickCount(r)) return err('Im gewählten Zeitraum liegt kein Arbeitstag von ' + m.name + '.');
+  const vm = vacDaysMap(A.p), clash = []; for (let d = f; d <= e; d = addDay(d, 1)) if (vm[d]) clash.push(dfmt(d));
+  if (clash.length && !confirm(`${m.name} hat am ${clash.slice(0, 3).join(', ')}${clash.length > 3 ? ' …' : ''} Urlaub eingetragen. Trotzdem krank eintragen?`)) return;
+  D.sick.push(r); logx(`Krank ${m.name} ${span(r)}`); A.sf = ''; A.st = ''; store(true); admin('sick');
+}
+function sickDel(id) {
+  const r = (D.sick || []).find(x => x.id === id); if (!r || !confirm(`Krank-Eintrag von ${r.name} (${span(r)}) entfernen?`)) return;
+  r.del = true; r.rev = (r.rev || 1) + 1; logx(`Krank entfernt: ${r.name} ${span(r)}`); store(true); admin('sick');
+}
 const shiftYm = (ym, k) => { const [y, m] = ym.split('-').map(Number), d = new Date(y, m - 1 + k, 1); return d.getFullYear() + '-' + p2(d.getMonth() + 1); };
 function monthCsv() {
-  const [Y, M] = A.ym.split('-').map(Number), n = new Date(Y, M, 0).getDate(), L = [['Datum', 'Tag', 'Mitarbeiter', 'Art', 'Kommen', 'Gehen', 'Pause Min', 'Netto Std', 'Urlaub Tage', 'Korrigiert'].join(';')];
-  D.team.forEach(m => { const vm = vacDaysMap(m.p); for (let k = 1; k <= n; k++) { const day = A.ym + '-' + p2(k), s = daySum(m.p, day), u = vm[day] || 0; if (!s.n && !u) continue;
-    L.push([dfmt(day), WDS[wdMon(day)], m.name, s.n ? (u ? 'Arbeit + ½ Urlaub' : 'Arbeit') : (u === 1 ? 'Urlaub' : '½ Urlaub'), s.b ? hm(s.b) : '', s.n ? (s.e ? hm(s.e) : 'offen') : '', s.e ? s.pm : '', s.net == null ? '' : dec1(s.net / 60), u ? String(u).replace('.', ',') : '', evsOf(m.p, day).some(e => e.src === 'admin') ? 'ja' : ''].join(';')); } });
+  const [Y, M] = A.ym.split('-').map(Number), n = new Date(Y, M, 0).getDate(), L = [['Datum', 'Tag', 'Mitarbeiter', 'Art', 'Kommen', 'Gehen', 'Pause Min', 'Netto Std', 'Urlaub Tage', 'Krank Tage', 'Korrigiert'].join(';')];
+  D.team.forEach(m => { const vm = vacDaysMap(m.p), sm = sickDaysMap(m.p); for (let k = 1; k <= n; k++) { const day = A.ym + '-' + p2(k), s = daySum(m.p, day), u = vm[day] || 0, k2 = sm[day] || 0; if (!s.n && !u && !k2) continue;
+    L.push([dfmt(day), WDS[wdMon(day)], m.name, (!s.n && !u && k2) ? (k2 === 1 ? 'Krank' : '½ Krank') : (s.n ? (u ? 'Arbeit + ½ Urlaub' : 'Arbeit') : (u === 1 ? 'Urlaub' : '½ Urlaub')), s.b ? hm(s.b) : '', s.n ? (s.e ? hm(s.e) : 'offen') : '', s.e ? s.pm : '', s.net == null ? '' : dec1(s.net / 60), u ? String(u).replace('.', ',') : '', k2 ? String(k2).replace('.', ',') : '', evsOf(m.p, day).some(e => e.src === 'admin') ? 'ja' : ''].join(';')); } });
   const f = new File(['﻿' + L.join('\r\n')], `SVNC_Zeiten_${A.ym}.csv`, { type: 'text/csv' });
   if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f] }).catch(() => {});
   else { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }
 }
 /* ---------- Stundennachweis je Mitarbeiter(in) als PDF (Drucken › Als PDF sichern) ---------- */
 function nachweisHtml(m, ym) {
-  const [Y, M] = ym.split('-').map(Number), n = new Date(Y, M, 0).getDate(), vm = vacDaysMap(m.p);
-  let rows = '', d = 0, net = 0, open = 0, uTot = 0;
+  const [Y, M] = ym.split('-').map(Number), n = new Date(Y, M, 0).getDate(), vm = vacDaysMap(m.p), sm = sickDaysMap(m.p);
+  let rows = '', d = 0, net = 0, open = 0, uTot = 0, kTot = 0;
   for (let k = 1; k <= n; k++) {
-    const day = ym + '-' + p2(k), s = daySum(m.p, day, Date.now()), u = vm[day] || 0;
-    if (!s.n && !u) continue;
+    const day = ym + '-' + p2(k), s = daySum(m.p, day, Date.now()), u = vm[day] || 0, kk = sm[day] || 0;
+    if (!s.n && !u && !kk) continue;
     const isOpen = !!s.n && s.e == null && day !== today(), fixed = evsOf(m.p, day).some(e => e.src === 'admin');
     if (s.n) { d++; if (isOpen) open++; else net += s.net || 0; }
-    uTot += u;
-    const note = [u ? (s.n || u !== 1 ? '½ Urlaub' : 'Urlaub') : '', isOpen ? 'Gehen fehlt' : '', fixed ? 'korrigiert' : ''].filter(Boolean).join(', ');
+    uTot += u; kTot += kk;
+    const note = [kk ? (s.n || kk !== 1 ? '½ Krank' : 'Krank') : '', u ? (s.n || u !== 1 ? '½ Urlaub' : 'Urlaub') : '', isOpen ? 'Gehen fehlt' : '', fixed ? 'korrigiert' : ''].filter(Boolean).join(', ');
     rows += `<tr><td>${dfmt(day)}</td><td>${WDS[wdMon(day)]}</td><td>${s.b ? hm(s.b) : ''}</td><td>${s.n ? (s.e ? hm(s.e) : 'offen') : ''}</td><td class="r">${s.e ? s.pm : ''}</td><td class="r">${s.e && s.net != null ? hmin(s.net) : ''}</td><td>${note}</td></tr>`;
   }
   const now = new Date();
   return `<div class="ns"><h1>Stundennachweis ${MONTHS[M - 1]} ${Y}</h1><div>SVNC Hair &amp; Beauty · <b>${esc(m.name)}</b>${m.role ? ' · ' + esc(m.role) : ''}</div>
   <table><tr><th>Datum</th><th>Tag</th><th>Kommen</th><th>Gehen</th><th class="r">Pause (Min)</th><th class="r">Arbeitszeit (Std:Min)</th><th>Bemerkung</th></tr>${rows || '<tr><td colspan="7">Keine Zeiten in diesem Monat.</td></tr>'}
-  <tr style="font-weight:700"><td colspan="5">Summe (${d} Arbeitstage${uTot ? ', ' + nf(uTot) + ' Urlaubstage' : ''})</td><td class="r">${hmin(net)}</td><td>${dec1(net / 60)} Std dezimal</td></tr></table>
+  <tr style="font-weight:700"><td colspan="5">Summe (${d} Arbeitstage${uTot ? ', ' + nf(uTot) + ' Urlaubstage' : ''}${kTot ? ', ' + nf(kTot) + (kTot === 1 ? ' Krankheitstag' : ' Krankheitstage') : ''})</td><td class="r">${hmin(net)}</td><td>${dec1(net / 60)} Std dezimal</td></tr></table>
   ${open ? `<div style="color:#b00020">Hinweis: ${open} Tag(e) ohne „Gehen“ sind in der Summe nicht enthalten.</div>` : ''}
   <div style="font-size:11px;color:#555">Arbeitszeit = Anwesenheit abzüglich Pausen (inkl. fester Mittagspause). Erfasst mit der SVNC Zeiterfassung; „korrigiert“ = nachträglich von der Salonleitung angepasst.</div>
   <div class="sig"><div>Datum, Unterschrift Mitarbeiter(in)</div><div>Datum, Unterschrift Arbeitgeber</div></div>
@@ -808,12 +872,14 @@ function loadTeam(inp) {
 function mergeObj(o) {
   if (!o || o.kind !== 'svnc-stempel') throw new Error('Keine gültige Stempeldatei');
   const rr = o.resetAt || 0, lr = D.resetAt || 0; // Zurücksetzen (Testdaten löschen): die neuere Marke gewinnt
-  if (rr > lr) { D.events = []; D.log = []; D.vacReqs = []; D.vacAdj = dropIpadAdj(D.vacAdj); D.resetAt = rr; }
+  if (rr > lr) { D.events = []; D.log = []; D.vacReqs = []; D.sick = []; D.vacAdj = dropIpadAdj(D.vacAdj); D.resetAt = rr; }
   else if (rr < lr) { D.unsynced = Math.max(D.unsynced || 0, 1); return 0; }
   const map = new Map(D.events.map(e => [e.id, e])); let n = 0;
   (o.events || []).forEach(e => { const c = map.get(e.id); if (!c) { D.events.push(e); n++; } else if ((e.rev || 1) > (c.rev || 1)) { Object.assign(c, e); n++; } });
   const vm = new Map(D.vacReqs.map(r => [r.id, r]));
   (o.vacReqs || []).forEach(r => { const c = vm.get(r.id); if (!c) { D.vacReqs.push(r); n++; } else if ((r.rev || 1) > (c.rev || 1)) { Object.assign(c, r); n++; } });
+  D.sick = D.sick || []; const sm = new Map(D.sick.map(r => [r.id, r]));
+  (o.sick || []).forEach(r => { const c = sm.get(r.id); if (!c) { D.sick.push(r); n++; } else if ((r.rev || 1) > (c.rev || 1)) { Object.assign(c, r); n++; } });
   if (o.vacAdj) { const b = JSON.stringify(D.vacAdj); D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj); if (JSON.stringify(D.vacAdj) !== b) n++; }
   const seen = new Set(D.log.map(l => l.ts + l.x)); (o.log || []).forEach(l => { if (!seen.has(l.ts + l.x)) D.log.push(l); }); D.log.sort((a, b) => a.ts - b.ts);
   if (D.log.length > 3000) D.log.splice(0, D.log.length - 3000);
