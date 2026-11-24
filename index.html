@@ -148,6 +148,13 @@ input[type=date]{font-size:17px;padding:10px 12px;border-radius:12px;border:0;bo
 .tgl input:checked+span{background:var(--ok-dot)}.tgl input:checked+span::after{transform:translateX(20px)}.tgl input:disabled+span{opacity:.4}
 .vacc{margin-top:16px}.vacc .vy{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.04em}.vacc .vy span{font-weight:500;color:var(--muted)}
 .vacc.mini .kpi .v{font-size:18px}.vacc.mini .kpi{padding:10px 14px}
+.kpi.tap{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}.kpi.tap:active{transform:scale(.98)}.kpi.tap .l::after{content:' ›';color:var(--accent);font-weight:700}
+.kpi.on{outline:2.5px solid var(--accent);outline-offset:-2px}.kpi.on .l::after{content:' ‹'}
+.vinfo:empty{display:none}.vinfo{background:var(--card);border-radius:16px;padding:6px 16px;margin-top:10px;box-shadow:inset 0 0 0 1px var(--line);font-size:14.5px;line-height:1.45}
+.vinfo .vh{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:12px 0 2px}.vinfo .row{padding:10px 0;min-height:0}
+.caly{margin-top:14px}.caly summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.03em;padding:4px 0}.caly .chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
+.caly .chip{font-weight:500;font-size:13px}.caly .chip b{font-weight:700}.caly .chip.sch{color:var(--info)}.caly .chip.cl{color:var(--warn)}.caly .ct{font-size:12px;color:var(--muted);margin-top:10px;font-weight:600}
+.vcal{font-size:13.5px;color:var(--muted);margin-top:10px;line-height:1.5}.vcal:empty{display:none}
 .vst{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px}.vst.warn{background:var(--warn-soft);color:var(--warn)}.vst.ok{background:var(--ok-soft);color:var(--ok)}.vst.bad{background:var(--bad-soft);color:var(--bad)}.vst.off{background:var(--card2);color:var(--muted)}
 .req{background:var(--card2);border-radius:18px;padding:18px;margin:12px 0;box-shadow:inset 0 0 0 1px var(--line)}
 .rq-h{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.rq-k{display:flex;align-items:baseline;gap:8px}.rq-k b{font-size:22px;color:var(--ink)}
@@ -721,7 +728,7 @@ function loadTeam(inp) {
   rd.onload = () => { try { const o = JSON.parse(rd.result); if (!o.team) throw 0; const t = today();
       D.team = o.team.map((x, i) => ({ p: i, name: x.name, role: x.role, jug: !!x.jug, birth: x.birth || '', zeit: x.zeit, entry: x.entry, exit: x.exit, days: x.days, v26: x.v26, v27: x.v27 }))
         .filter(x => x.name && x.zeit && (!x.entry || x.entry <= t) && (!x.exit || x.exit >= t))  .map(({ p, name, role, jug, birth, entry, days, v26, v27 }) => ({ p, name, role, jug, birth, entry, days, v26, v27 }));
-      D.cal = { holidays: (o.holidays || []).map(h => h.date), closures: o.closures || [] };
+      D.cal = { holidays: (o.holidays || []).map(h => h.date), closures: o.closures || [], school: o.school || [] };
       D.snap = o.vacSnap || null; if (o.vacAdj) D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj);
       if (Array.isArray(o.hours) && o.hours.length === 7) D.hours = o.hours.map(h => ({ a1: h.a1, a2: h.a2, b1: h.b1, b2: h.b2 }));
       logx('Team geladen: ' + D.team.map(m => m.name).join(', ')); store(); admin('team'); } catch (e) { alert('Die Datei ist keine gültige Personalplanung.'); } };
@@ -775,15 +782,16 @@ function acct(p, y) {
   const total = (base || 0) + adj; return { total, base: base || 0, adj, booked, pend, rest: total - booked, after: total - booked - pend };
 }
 const vacYears = () => { const y = Number(today().slice(0, 4)); return [String(y), String(y + 1)].filter(x => x <= '2027'); };
-function acctTiles(p, y, big) {
+function acctTiles(p, y, big, tap) {
   const a = acct(p, y);
   if (a.none) return `<div class="note info" style="margin-top:10px">${y}: Kein Urlaubskonto in der Personalplanung hinterlegt.</div>`;
   const rc = a.rest < 0 ? 'var(--bad)' : (a.booked > 0 && a.rest <= Math.max(1, a.total * 0.2)) ? 'var(--warn)' : 'var(--ok)';
+  const kp = (k, st, inner) => `<div class="kpi${tap ? ' tap' : ''}"${tap ? ` role="button" data-y="${y}" data-k="${k}" onclick="vacTile(${p},'${y}','${k}')"` : ''}${st ? ` style="${st}"` : ''}>${inner}</div>`;
   return `<div class="vacc ${big ? '' : 'mini'}"><div class="vy">${y}${y === '2026' && D.snap && D.snap.vacFrom2026 ? ` <span>ab ${dfmt(D.snap.vacFrom2026)}</span>` : ''}</div>
-    <div class="kpis" style="margin-top:8px"><div class="kpi"><div class="l">Anspruch</div><div class="v">${nf(a.total)}</div>${a.adj ? `<div class="small">inkl. ${a.adj > 0 ? '+' : ''}${nf(a.adj)} Korrektur</div>` : ''}</div>
-    <div class="kpi"><div class="l">Verplant / genommen</div><div class="v">${nf(a.booked)}</div></div>
-    <div class="kpi"><div class="l">Beantragt (offen)</div><div class="v">${nf(a.pend)}</div></div>
-    <div class="kpi" style="box-shadow:inset 0 0 0 1.5px ${rc}"><div class="l">Resturlaub</div><div class="v" style="color:${rc}">${nf(a.rest)}</div>${a.pend ? `<div class="small">nach offenen Anträgen ${nf(a.after)}</div>` : ''}</div></div></div>`;
+    <div class="kpis" style="margin-top:8px">${kp('total', '', `<div class="l">Anspruch</div><div class="v">${nf(a.total)}</div>${a.adj ? `<div class="small">inkl. ${a.adj > 0 ? '+' : ''}${nf(a.adj)} Korrektur</div>` : ''}`)}
+    ${kp('booked', '', `<div class="l">Verplant / genommen</div><div class="v">${nf(a.booked)}</div>`)}
+    ${kp('pend', '', `<div class="l">Beantragt (offen)</div><div class="v">${nf(a.pend)}</div>`)}
+    ${kp('rest', `box-shadow:inset 0 0 0 1.5px ${rc}`, `<div class="l">Resturlaub</div><div class="v" style="color:${rc}">${nf(a.rest)}</div>${a.pend ? `<div class="small">nach offenen Anträgen ${nf(a.after)}</div>` : ''}`)}</div>${tap ? `<div class="vinfo" id="vi-${y}"></div>` : ''}</div>`;
 }
 const snapNote = () => D.snap && D.snap.at ? `Stand Personalplanung: ${dfmt(dkey(D.snap.at))}` : 'Hinweis: Urlaub aus der Personalplanung noch nicht geladen (Team neu laden)';
 function overlaps(r) { // andere Personen im selben Zeitraum
@@ -799,23 +807,68 @@ function ownClash(r) { const booked = ((D.snap && D.snap.booked) || {})[r.p] || 
   D.vacReqs.forEach(o => { if (o.p !== r.p || o.id === r.id || !['approved', 'pending'].includes(o.status)) return; if (o.from <= r.to && o.to >= r.from) hit.push(o.from); });
   return hit.length; }
 
-/* Urlaubszeiträume (Personalplanung + genehmigt) zu Blöcken zusammenfassen */
-function vacRanges(p) {
-  const m = D.team.find(x => x.p === p) || {}, mp = vacDaysMap(p), ds = Object.keys(mp).sort(), yrs = vacYears(), out = [];
-  ds.forEach(d => { if (!yrs.includes(d.slice(0, 4))) return;
-    const last = out[out.length - 1];
-    let join = false;
-    if (last) { join = true; for (let x = addDay(last.to, 1); x < d; x = addDay(x, 1)) if (isWork(m, x)) { join = false; break; } }
+/* ---------- Feiertage Baden-Württemberg + Schulferien (nur Azubi/U18) ---------- */
+const SCHOOL_BW = [{"name":"Weihnachtsferien","from":"2025-12-22","to":"2026-01-05"},{"name":"Osterferien","from":"2026-03-30","to":"2026-04-10"},{"name":"Pfingstferien","from":"2026-05-26","to":"2026-06-05"},{"name":"Sommerferien","from":"2026-07-30","to":"2026-09-12"},{"name":"Herbstferien","from":"2026-10-26","to":"2026-10-30"},{"name":"Weihnachtsferien","from":"2026-12-23","to":"2027-01-09"},{"name":"Osterferien","from":"2027-03-25","to":"2027-04-02"},{"name":"Pfingstferien","from":"2027-05-18","to":"2027-05-28"},{"name":"Sommerferien","from":"2027-07-29","to":"2027-09-11"},{"name":"Herbstferien","from":"2027-11-02","to":"2027-11-06"},{"name":"Weihnachtsferien","from":"2027-12-23","to":"2028-01-08"}];
+function easterOf(y) { const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mo = Math.floor((h + l - 7 * m + 114) / 31), da = ((h + l - 7 * m + 114) % 31) + 1; return [y, mo, da]; }
+function bwHolidays(y) {
+  const [ey, em, ed] = easterOf(Number(y)), f = n => dkey(new Date(ey, em - 1, ed + n).getTime());
+  return [[y + '-01-01', 'Neujahr'], [y + '-01-06', 'Heilige Drei Könige'], [f(-2), 'Karfreitag'], [f(1), 'Ostermontag'], [y + '-05-01', 'Tag der Arbeit'], [f(39), 'Christi Himmelfahrt'], [f(50), 'Pfingstmontag'], [f(60), 'Fronleichnam'],
+    [y + '-10-03', 'Tag der Deutschen Einheit'], [y + '-11-01', 'Allerheiligen'], [y + '-12-25', '1. Weihnachtstag'], [y + '-12-26', '2. Weihnachtstag']];
+}
+const schoolList = m => m && m.jug ? ((D.cal && D.cal.school && D.cal.school.length ? D.cal.school : SCHOOL_BW)) : [];
+const dm = ds => Number(ds.slice(8, 10)) + '.' + Number(ds.slice(5, 7)) + '.';
+const rng = (f, t) => f === t ? dsh(f) : dm(f) + ' – ' + dm(t);
+function calInfo(m, from, to) { // Hinweise für den gewählten Zeitraum
+  const out = [], hs = [];
+  for (let y = Number(from.slice(0, 4)); y <= Number(to.slice(0, 4)); y++) bwHolidays(String(y)).forEach(([d, n]) => { if (d >= from && d <= to) hs.push(`${dsh(d)} ${n}`); });
+  if (hs.length) out.push('<b>Feiertag (BW):</b> ' + hs.map(esc).join(' · '));
+  ((D.cal && D.cal.closures) || []).filter(c => c.from <= to && c.to >= from).forEach(c => out.push(`<b>Salon geschlossen:</b> ${esc(c.name || 'Betriebsferien')} (${rng(c.from, c.to)})`));
+  schoolList(m).filter(x => x.from <= to && x.to >= from).forEach(x => out.push(`<b>Schulferien:</b> ${esc(x.name)} (${rng(x.from, x.to)})`));
+  return out.join('<br>');
+}
+function calLegend(m) { // kommende Feiertage und Schulferien als Übersicht
+  const t = today(), y0 = Number(t.slice(0, 4)), hs = [];
+  [y0, y0 + 1].forEach(y => bwHolidays(String(y)).forEach(([d, n]) => { if (d >= t && d <= (y0 + 1) + '-12-31') hs.push([d, n]); }));
+  const sc = schoolList(m).filter(x => x.to >= t && x.from <= (y0 + 1) + '-12-31'), cl = ((D.cal && D.cal.closures) || []).filter(c => c.to >= t);
+  return `<details class="caly" open><summary>Feiertage${sc.length ? ' &amp; Schulferien' : ''} (Baden-Württemberg)</summary>
+    <div class="chips">${hs.map(([d, n]) => `<span class="chip"><b>${dsh(d)}</b> ${esc(n)}</span>`).join('')}</div>
+    ${cl.length ? `<div class="ct">Salon geschlossen</div><div class="chips">${cl.map(c => `<span class="chip cl"><b>${rng(c.from, c.to)}</b> ${esc(c.name || '')}</span>`).join('')}</div>` : ''}
+    ${sc.length ? `<div class="ct">Schulferien</div><div class="chips">${sc.map(x => `<span class="chip sch"><b>${rng(x.from, x.to)}</b> ${esc(x.name)}</span>`).join('')}</div>` : ''}</details>`;
+}
+
+/* Urlaubszeiträume eines Jahres (Personalplanung + genehmigt) zu Blöcken zusammenfassen */
+function vacRanges(p, y) {
+  const m = D.team.find(x => x.p === p) || {}, mp = vacDaysMap(p), from = y === '2026' && D.snap && D.snap.vacFrom2026 ? D.snap.vacFrom2026 : '', out = [];
+  Object.keys(mp).sort().forEach(d => { if (d.slice(0, 4) !== y || d < from) return;
+    const last = out[out.length - 1]; let join = !!last;
+    if (last) for (let x = addDay(last.to, 1); x < d; x = addDay(x, 1)) if (isWork(m, x)) { join = false; break; }
     if (join) { last.to = d; last.n += mp[d]; } else out.push({ from: d, to: d, n: mp[d] }); });
   return out;
 }
-function vacPeriods(p) {
-  const t = today(), cy = t.slice(0, 4), rs = vacRanges(p);
-  const ds = d => dsh(d) + (d.slice(0, 4) !== cy ? d.slice(0, 4) : '');
-  const row = r => `<div class="row"><div><div class="t">${r.from === r.to ? ds(r.from) : ds(r.from) + ' – ' + ds(r.to)}</div></div><div class="btns"><span class="vst ${r.to < t ? 'off' : 'ok'}">${nf(r.n)} ${r.n === 1 ? 'Tag' : 'Tage'}</span></div></div>`;
-  const up = rs.filter(r => r.to >= t), past = rs.filter(r => r.to < t).reverse();
-  return `<div class="gt">Geplanter Urlaub</div><div class="group">${up.map(row).join('') || '<div class="row"><div class="small">Kein Urlaub eingetragen.</div></div>'}</div>
-   ${past.length ? `<div class="gt">Genommener Urlaub</div><div class="group">${past.map(row).join('')}</div>` : ''}`;
+const dayTag = (n, off) => `<span class="vst ${off ? 'off' : 'ok'}">${nf(n)} ${n === 1 ? 'Tag' : 'Tage'}</span>`;
+function vacDetail(p, y, k) {
+  const a = acct(p, y), t = today();
+  if (k === 'total') { const adj = adjOf(p, y);
+    return `<div class="row"><div>Anspruch laut Personalplanung${y === '2026' && D.snap && D.snap.vacFrom2026 ? ` (ab ${dfmt(D.snap.vacFrom2026)})` : ''}</div>${dayTag(a.base)}</div>
+      ${adj.map(c => `<div class="row"><div>Korrektur: ${esc(c.x)}</div>${dayTag(c.n)}</div>`).join('')}
+      <div class="row"><div><b>Gesamtanspruch ${y}</b></div><b>${nf(a.total)} ${a.total === 1 ? 'Tag' : 'Tage'}</b></div>`; }
+  if (k === 'booked') { const rs = vacRanges(p, y), up = rs.filter(r => r.to >= t), past = rs.filter(r => r.to < t).reverse();
+    const row = r => `<div class="row"><div>${rng(r.from, r.to)}${r.to < t ? '' : ''}</div>${dayTag(r.n, r.to < t)}</div>`;
+    if (!rs.length) return '<div class="row"><div class="small">Für ' + y + ' ist noch kein Urlaub eingetragen.</div></div>';
+    return (up.length ? `<div class="vh">Geplant</div>${up.map(row).join('')}` : '') + (past.length ? `<div class="vh">Genommen</div>${past.map(row).join('')}` : ''); }
+  if (k === 'pend') { const rs = D.vacReqs.filter(r => r.p === p && r.status === 'pending' && reqDays(r)[y]).sort((u, v) => u.from < v.from ? -1 : 1);
+    return rs.length ? rs.map(r => `<div class="row"><div>${span(r)}${r.note ? `<div class="small">${esc(r.note)}</div>` : ''}</div>${dayTag(reqDays(r)[y], false)}</div>`).join('') + '<div class="small" style="padding:8px 0 10px">Warten auf Entscheidung der Salonleitung.</div>'
+      : '<div class="row"><div class="small">Keine offenen Anträge für ' + y + '.</div></div>'; }
+  const line = (l, v, b) => `<div class="row"><div>${b ? '<b>' + l + '</b>' : l}</div>${b ? '<b>' : ''}${v}${b ? '</b>' : ''}</div>`;
+  const tg = x => nf(x) + (Math.abs(x) === 1 ? ' Tag' : ' Tage');
+  return line('Anspruch', tg(a.total)) + line('abzüglich verplant / genommen', '− ' + tg(a.booked)) + line('Resturlaub', tg(a.rest), true)
+    + (a.pend ? line('abzüglich beantragt (offen)', '− ' + tg(a.pend)) + line('Rest nach offenen Anträgen', tg(a.after), true) : '');
+}
+function vacTile(p, y, k) {
+  idle(150);
+  const box = $('#vi-' + y), same = box.dataset.k === k;
+  document.querySelectorAll('.kpi[data-y="' + y + '"]').forEach(e => e.classList.toggle('on', !same && e.dataset.k === k));
+  box.dataset.k = same ? '' : k; box.innerHTML = same ? '' : vacDetail(p, y, k);
 }
 
 /* Mitarbeiter-Ansicht */
@@ -827,13 +880,14 @@ function vac(p) {
     return `<div class="row"><div><div class="t">${span(r)}</div><div class="d">${nf(sumV(reqDays(r)))} Arbeitstage${r.note ? ' · ' + esc(r.note) : ''}${r.reason ? ' · Antwort: ' + esc(r.reason) : ''}</div></div>
       <div class="btns"><span class="vst ${cls}">${lab}</span>${r.status === 'pending' ? `<button class="btn danger" onclick="vacWithdraw('${r.id}',${p})">Zurückziehen</button>` : ''}</div></div>`; }).join('');
   modal(`<div class="ahead"><div><h3>Urlaub</h3><div class="sub" style="margin:0">${esc(m.name)} · ${snapNote()}</div></div><button class="btn" onclick="actions(${p})">Zurück</button></div>
-   ${vacYears().map((y, i) => acctTiles(p, y, i === 0)).join('')}
-   ${vacPeriods(p)}
+   ${vacYears().map((y, i) => acctTiles(p, y, i === 0, true)).join('')}
    <div class="gt">Neuer Antrag</div>
    <div class="group" style="padding:16px 18px">
      <div class="grid2"><label class="fl">Von<input type="date" id="vf" min="${t}" max="2027-12-31" value="${t}"></label><label class="fl">Bis<input type="date" id="vt" min="${t}" max="2027-12-31" value="${t}"></label></div>
      <label class="tgl"><input type="checkbox" id="vh"><span></span>Halber Tag</label>
      <input type="text" id="vn" placeholder="Bemerkung (optional)" maxlength="120" style="margin-top:12px">
+     ${calLegend(m)}
+     <div id="vcal" class="vcal"></div>
      <div id="vcalc" class="note info">Bitte Zeitraum wählen.</div>
      <button class="act" id="vsend" style="width:100%;margin-top:14px" disabled onclick="vacSend(${p})">Antrag stellen</button>
    </div>
@@ -847,6 +901,7 @@ function vacDraft(p) { const f = $('#vf').value, t = $('#vt').value, single = f 
   return { id: '_draft', p, from: f, to: t, half: single && $('#vh').checked }; }
 function vacCalc(p) {
   idle(150); const r = vacDraft(p), out = $('#vcalc'), btn = $('#vsend');
+  $('#vcal').innerHTML = r.from && r.to && r.to >= r.from ? calInfo(D.team.find(x => x.p === p), r.from, r.to) : '';
   if ($('#vf').value && $('#vt').value < $('#vf').value) { $('#vt').value = $('#vf').value; return vacCalc(p); }
   if (!r.from || !r.to) { out.className = 'note info'; out.textContent = 'Bitte Zeitraum wählen.'; btn.disabled = true; return; }
   if (r.from < today()) { out.className = 'note bad'; out.textContent = 'Der Beginn liegt in der Vergangenheit.'; btn.disabled = true; return; }
