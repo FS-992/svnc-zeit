@@ -257,6 +257,7 @@ function load() {
   D.fails = D.fails || {}; D.log = D.log || []; D.unsynced = D.unsynced || 0; D.hours = D.hours || null; D.vacReqs = D.vacReqs || []; D.vacAdj = D.vacAdj || {};
 }
 function store(changed) { if (changed) D.unsynced = (D.unsynced || 0) + 1; try { localStorage.setItem(LS, JSON.stringify(D)); } catch (e) { alert('Speichern auf diesem Gerät nicht möglich!'); } if (changed) autoQueue(); }
+function dropIpadAdj(a) { const o = {}; Object.entries(a || {}).forEach(([p, ys]) => Object.entries(ys || {}).forEach(([y, l]) => { const k = (l || []).filter(c => c.src !== 'ipad'); if (k.length) ((o[p] = o[p] || {})[y] = k); })); return o; }
 function logx(x) { D.log.push({ ts: Date.now(), x }); if (D.log.length > 3000) D.log.splice(0, D.log.length - 3000); }
 function rnd(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); }
 async function hash(s) {
@@ -326,7 +327,7 @@ const AUTO = { handle: null, ok: false, last: 0, err: '', timer: null, name: '' 
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open('svnc_zeit', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbSet(k, v) { const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); if (v == null) tx.objectStore('kv').delete(k); else tx.objectStore('kv').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
 async function idbGet(k) { const db = await idb(); return new Promise((res, rej) => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj });
+const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj });
 async function autoInit() {
   if (!FS_OK) return;
   try { const h = await idbGet('handle'); if (!h) return; AUTO.handle = h; AUTO.name = h.name;
@@ -459,6 +460,12 @@ function odSetCid() {
   OD.cfg.cid = v; odSave(); logx('OneDrive: Client-ID hinterlegt'); store(); admin('status'); refreshChrome();
 }
 function odSignOut() { OD.cfg.at = ''; OD.cfg.rt = ''; OD.cfg.exp = 0; OD.needLogin = false; OD.err = ''; odSave(); logx('OneDrive abgemeldet'); store(); admin('status'); refreshChrome(); }
+function resetAll() {
+  if (!confirm('ALLE Stempelzeiten, Urlaubsanträge, Korrekturen und das Protokoll löschen? Team, PINs und OneDrive-Anmeldung bleiben erhalten. Das lässt sich nicht rückgängig machen.')) return;
+  if (!['LÖSCHEN', 'LOESCHEN'].includes((prompt('Zur Bestätigung bitte LÖSCHEN eingeben:') || '').trim().toUpperCase())) { alert('Abgebrochen. Es wurde nichts gelöscht.'); return; }
+  D.resetAt = Date.now(); D.events = []; D.vacReqs = []; D.vacAdj = dropIpadAdj(D.vacAdj); D.log = []; logx('Zeiterfassung zurückgesetzt (Testdaten gelöscht)');
+  store(true); admin('status'); refreshChrome();
+}
 function odReset() { if (!confirm('Client-ID und Anmeldung entfernen?')) return; OD.cfg = {}; odSave(); admin('status'); refreshChrome(); }
 async function odNow() { OD.err = ''; await odSync(); admin('status'); }
 function odPanel() {
@@ -630,7 +637,8 @@ function aStatus() {
     <div class="kpi" onclick="admin('vac')" style="cursor:pointer"><div class="l">Urlaub</div><div class="v" style="color:${np ? 'var(--accent)' : 'var(--ink)'}">${np || 'Keine'} <span style="font-size:13px;font-weight:500;color:var(--muted)">offen</span></div></div></div>
    <div class="gt">Heute im Salon</div><div class="group">${crew}</div>
    <div class="gt">Tages-Ende-Check</div><div class="group">${list || `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ok"></span><div class="t">Alle Schichten sauber geschlossen</div></div></div>`}</div>
-   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}</div></details>`;
+   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}</div>
+   <div class="group"><div class="row"><div><div class="t">Testdaten löschen</div><div class="d">Löscht alle Stempelungen, Urlaubsanträge, Korrekturen und das Protokoll, auch in OneDrive. Team, PINs und OneDrive-Anmeldung bleiben. Nur vor dem Start im Salon verwenden.</div></div><button class="btn danger" onclick="resetAll()">Löschen…</button></div></div></details>`;
 }
 function aFix() {
   const t = today(), y = yesterday();
@@ -757,6 +765,9 @@ function loadTeam(inp) {
 }
 function mergeObj(o) {
   if (!o || o.kind !== 'svnc-stempel') throw new Error('Keine gültige Stempeldatei');
+  const rr = o.resetAt || 0, lr = D.resetAt || 0; // Zurücksetzen (Testdaten löschen): die neuere Marke gewinnt
+  if (rr > lr) { D.events = []; D.log = []; D.vacReqs = []; D.vacAdj = dropIpadAdj(D.vacAdj); D.resetAt = rr; }
+  else if (rr < lr) { D.unsynced = Math.max(D.unsynced || 0, 1); return 0; }
   const map = new Map(D.events.map(e => [e.id, e])); let n = 0;
   (o.events || []).forEach(e => { const c = map.get(e.id); if (!c) { D.events.push(e); n++; } else if ((e.rev || 1) > (c.rev || 1)) { Object.assign(c, e); n++; } });
   const vm = new Map(D.vacReqs.map(r => [r.id, r]));
