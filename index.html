@@ -105,6 +105,7 @@ footer{max-width:1180px;margin:8px auto 30px;padding:0 calc(env(safe-area-inset-
 .check svg{width:38px;height:38px}
 .done .big{font-size:58px;font-weight:600;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
 .done .msg{font-size:21px;font-weight:600;color:var(--ink);margin-top:4px}
+.odbar{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--warn-soft);color:var(--warn);border-radius:16px;padding:12px 16px;margin-bottom:16px;cursor:pointer;box-shadow:inset 0 0 0 1px var(--warn-dot)}.odbar b{display:block;font-size:15px;margin-bottom:2px}.odbar span{font-size:13.5px;line-height:1.35}.odbar .btn{flex:none}
 .note{background:var(--warn-soft);color:var(--warn);border-radius:16px;padding:14px 16px;font-size:14.5px;line-height:1.4;margin-top:16px}
 .note.bad{background:var(--bad-soft);color:var(--bad)}.note.ok{background:var(--ok-soft);color:var(--ok)}.note.info{background:var(--info-soft);color:var(--info)}
 /* Admin */
@@ -445,6 +446,12 @@ async function odSync() {
   OD.busy = false; refreshChrome();
   if (D.unsynced && !OD.err && !OD.needLogin) odQueue(8000);
 }
+// Hinweisbalken auf der Startseite, wenn die OneDrive-Anmeldung abgelaufen ist (ein Tipp genügt)
+function odBanner() {
+  if (!odNeedsLogin()) return '';
+  const u = D.unsynced || 0;
+  return `<div class="odbar" onclick="odLogin()"><div><b>OneDrive abgemeldet</b><span>Gestempelt werden kann weiter${u ? ' (' + u + (u === 1 ? ' Änderung wartet' : ' Änderungen warten') + ' auf die Sicherung)' : ''}. Hier tippen zum Anmelden.</span></div><button class="btn pri" type="button">Anmelden</button></div>`;
+}
 function odLine() {
   const u = D.unsynced || 0, w = u ? ' · ' + u + (u === 1 ? ' Änderung wartet' : ' Änderungen warten') : '';
   if (!odConnected() || OD.needLogin) return { cls: u ? 'bad' : 'warn', txt: 'OneDrive: Anmeldung nötig – hier tippen' + w };
@@ -473,6 +480,10 @@ function odPanel() {
 }
 async function odInit() {
   await odReturn(); refreshChrome();
+  // Nur Handy: abgelaufene Anmeldung beim Öffnen automatisch erneuern (höchstens alle 30 Min., nie im Rücksprung von Microsoft)
+  if (PHONE && location.protocol === 'https:' && odNeedsLogin() && !/[?&](code|error)=/.test(location.search)) {
+    try { const k = 'svnc_od_auto', last = +localStorage.getItem(k) || 0; if (Date.now() - last > 1800000) { localStorage.setItem(k, String(Date.now())); odLogin(); } } catch (e) {}
+  }
   if (odConnected()) odSync();
   document.addEventListener('visibilitychange', () => { if (odConnected() && (document.visibilityState === 'visible' || D.unsynced)) odSync(); });
   window.addEventListener('online', () => { if (odConnected()) odSync(); });
@@ -487,7 +498,7 @@ function home() {
   closeModal();
   if (!D.admin) { $('#app').innerHTML = `<div class="empty"><h2>Willkommen</h2><p>Zuerst eine Admin-PIN für die Salonleitung festlegen und das Team laden.</p><button class="act" style="display:inline-flex;margin-top:12px;padding:16px 28px" onclick="setupAdmin()">Einrichtung starten</button></div>`; refreshChrome(); return; }
   if (!D.team.length) { $('#app').innerHTML = `<div class="empty"><h2>Kein Team geladen</h2><p>Oben rechts über das Zahnrad → Team → „Team laden“ die Datei der Personalplanung wählen.</p></div>`; refreshChrome(); return; }
-  if (PHONE) { $('#app').innerHTML = `<div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub und Anträge einsehen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">Mit PIN öffnen</button></div>`; refreshChrome(); return; }
+  if (PHONE) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub und Anträge einsehen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">Mit PIN öffnen</button></div>`; refreshChrome(); return; }
   const t = today(), y = yesterday(), now = Date.now(), h = new Date().getHours();
   const tiles = D.team.map(m => {
     const st = stateOf(m.p, t), ev = evsOf(m.p, t), last = ev[ev.length - 1], s = daySum(m.p, t, now), first = ev.find(e => e.t === 'in');
@@ -498,7 +509,7 @@ function home() {
       <div>${big}<div style="margin-top:12px"><span class="pill"><i></i>${pill}</span></div></div></button>`;
   }).join('');
   const greet = h < 11 ? 'Guten Morgen' : h < 18 ? 'Hallo' : 'Guten Abend';
-  $('#app').innerHTML = `<div class="greet"><h1>${greet}</h1><span>Zum Stempeln bitte den eigenen Namen antippen</span></div><div class="tiles">${tiles}</div>`;
+  $('#app').innerHTML = `<div id="odslot"></div><div class="greet"><h1>${greet}</h1><span>Zum Stempeln bitte den eigenen Namen antippen</span></div><div class="tiles">${tiles}</div>`;
   refreshChrome();
 }
 function refreshChrome() {
@@ -506,6 +517,7 @@ function refreshChrome() {
   const np = D.admin ? vacOpenN() : 0, n = iss.length + np + (s.cls === 'bad' ? 1 : 0);
   b.innerHTML = n ? `<span class="badge ${iss.some(x => x.kind === 'open') || s.cls === 'bad' ? '' : 'warn'}">${n}</span>` : '';
   $('#foot1').innerHTML = `<span class="dot ${s.cls}" style="margin-right:6px;vertical-align:middle"></span>${esc(s.txt)}`;
+  const odsl = $('#odslot'); if (odsl) odsl.innerHTML = odBanner();
   $('#foot1').onclick = odNeedsLogin() ? odLogin : null; $('#foot1').style.cursor = odNeedsLogin() ? 'pointer' : '';
 }
 
