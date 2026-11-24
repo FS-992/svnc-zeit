@@ -460,12 +460,6 @@ function odSetCid() {
   OD.cfg.cid = v; odSave(); logx('OneDrive: Client-ID hinterlegt'); store(); admin('status'); refreshChrome();
 }
 function odSignOut() { OD.cfg.at = ''; OD.cfg.rt = ''; OD.cfg.exp = 0; OD.needLogin = false; OD.err = ''; odSave(); logx('OneDrive abgemeldet'); store(); admin('status'); refreshChrome(); }
-function resetAll() {
-  if (!confirm('ALLE Stempelzeiten, Urlaubsanträge, Korrekturen und das Protokoll löschen? Team, PINs und OneDrive-Anmeldung bleiben erhalten. Das lässt sich nicht rückgängig machen.')) return;
-  if (!['LÖSCHEN', 'LOESCHEN'].includes((prompt('Zur Bestätigung bitte LÖSCHEN eingeben:') || '').trim().toUpperCase())) { alert('Abgebrochen. Es wurde nichts gelöscht.'); return; }
-  D.resetAt = Date.now(); D.events = []; D.vacReqs = []; D.vacAdj = dropIpadAdj(D.vacAdj); D.log = []; logx('Zeiterfassung zurückgesetzt (Testdaten gelöscht)');
-  store(true); admin('status'); refreshChrome();
-}
 function odReset() { if (!confirm('Client-ID und Anmeldung entfernen?')) return; OD.cfg = {}; odSave(); admin('status'); refreshChrome(); }
 async function odNow() { OD.err = ''; await odSync(); admin('status'); }
 function odPanel() {
@@ -637,8 +631,7 @@ function aStatus() {
     <div class="kpi" onclick="admin('vac')" style="cursor:pointer"><div class="l">Urlaub</div><div class="v" style="color:${np ? 'var(--accent)' : 'var(--ink)'}">${np || 'Keine'} <span style="font-size:13px;font-weight:500;color:var(--muted)">offen</span></div></div></div>
    <div class="gt">Heute im Salon</div><div class="group">${crew}</div>
    <div class="gt">Tages-Ende-Check</div><div class="group">${list || `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ok"></span><div class="t">Alle Schichten sauber geschlossen</div></div></div>`}</div>
-   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}</div>
-   <div class="group"><div class="row"><div><div class="t">Testdaten löschen</div><div class="d">Löscht alle Stempelungen, Urlaubsanträge, Korrekturen und das Protokoll, auch in OneDrive. Team, PINs und OneDrive-Anmeldung bleiben. Nur vor dem Start im Salon verwenden.</div></div><button class="btn danger" onclick="resetAll()">Löschen…</button></div></div></details>`;
+   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}</div></details>`;
 }
 function aFix() {
   const t = today(), y = yesterday();
