@@ -182,6 +182,17 @@ tr.sum td{font-weight:700;border-top:2px solid var(--line)}
   .kpis{grid-template-columns:1fr 1fr;gap:10px}.kpi .v{font-size:19px}
   .act{padding:17px;font-size:18px}.ahead{margin-bottom:12px}
   footer{padding:0 16px;font-size:11.5px}
+  /* Handy: nichts darf breiter als der Bildschirm werden */
+  html,body{max-width:100%;overflow-x:hidden}
+  .box{overflow-x:hidden;max-width:100%}.box>*{min-width:0;max-width:100%}
+  .ahead{flex-wrap:wrap}.ahead .btns{flex-wrap:wrap}
+  .mnav{flex:1;min-width:0}.mnav b{min-width:0;flex:1;font-size:16px}
+  .row{flex-wrap:wrap}.row>div{min-width:0}
+  .group{max-width:100%}
+  .mtab th,.mtab td{padding-left:5px;padding-right:5px;font-size:13.5px}
+  .mtab th:nth-child(4),.mtab td:nth-child(4),.mtab th:nth-child(5),.mtab td:nth-child(5),.mtab th:nth-child(8),.mtab td:nth-child(8){display:none}
+  .mtab .btn{padding:7px 10px;font-size:13px}
+  .seg button{padding:10px 12px}
 }
 @media (max-width:380px){.tiles{grid-template-columns:1fr}}
 @media (max-width:700px){.grid2,.grid3{grid-template-columns:1fr}.pad{grid-template-columns:repeat(3,74px);gap:14px 20px}.pad button{width:74px;height:74px}}
@@ -667,7 +678,7 @@ function aMonth() {
     tot.d += d; tot.net += net; tot.pm += pm; tot.open += open; tot.fix += fix;
     return `<tr><td><b>${esc(m.name)}</b></td><td class="r">${d}</td><td class="r"><b>${hmin(net)}</b></td><td class="r">${dec1(net / 60)}</td><td class="r">${hmin(pm)}</td><td class="r">${u ? nf(u) : '–'}</td><td class="r" style="${open ? 'color:var(--bad);font-weight:700' : ''}">${open || '–'}</td><td class="r">${fix || '–'}</td><td class="r"><button class="btn" onclick="nachweisPrint(${m.p})">PDF</button></td></tr>`; }).join('');
   return `<div class="ahead" style="margin:20px 0 6px"><div class="mnav"><button class="btn" onclick="A.ym=shiftYm(A.ym,-1);admin()">‹</button><b>${MONTHS[M - 1]} ${Y}</b><button class="btn" onclick="A.ym=shiftYm(A.ym,1);admin()">›</button></div><div class="btns" style="margin:0"><button class="btn" onclick="nachweisPrint()">Stundennachweise (PDF)</button><button class="btn" onclick="monthCsv()">CSV exportieren</button></div></div>
-   <div class="group" style="padding:4px 14px"><table><tr><th>Mitarbeiter(in)</th><th class="r">Tage</th><th class="r">Netto (Std:Min)</th><th class="r">Netto (dezimal)</th><th class="r">Pausen</th><th class="r">Urlaub</th><th class="r">Offen</th><th class="r">Korr.</th><th></th></tr>${rows}
+   <div class="group" style="padding:4px 14px"><table class="mtab"><tr><th>Mitarbeiter(in)</th><th class="r">Tage</th><th class="r">Netto (Std:Min)</th><th class="r">Netto (dezimal)</th><th class="r">Pausen</th><th class="r">Urlaub</th><th class="r">Offen</th><th class="r">Korr.</th><th></th></tr>${rows}
    <tr class="sum"><td>Gesamt</td><td class="r">${tot.d}</td><td class="r">${hmin(tot.net)}</td><td class="r">${dec1(tot.net / 60)}</td><td class="r">${hmin(tot.pm)}</td><td class="r">${tot.u ? nf(tot.u) : '–'}</td><td class="r">${tot.open || '–'}</td><td class="r">${tot.fix || '–'}</td><td></td></tr></table></div>
    <p class="small">Netto = Anwesenheit minus Pausen, Di–Fr inkl. der festen Mittagspause 13–14 Uhr. Urlaub = Urlaubstage laut Personalplanung plus hier genehmigte Anträge. Tage ohne „Gehen“ (Offen) zählen nicht mit, bitte vorher korrigieren. Als Lohnvorbereitung gedacht. Maßgeblich bleibt die Personalplanung bzw. die Lohnabrechnung.</p>`;
 }
