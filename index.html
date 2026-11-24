@@ -470,10 +470,13 @@ async function odInit() {
 }
 
 /* ---------- Startseite ---------- */
+// Handy-Ansicht: nur Smartphones (iPhone / Android mit „Mobile“ im Browser). iPad und Android-Tablets bleiben unverändert.
+const PHONE = /iPhone|Android.*Mobile/i.test(navigator.userAgent) || /[?&]phone=1\b/.test(location.search);
 function home() {
   closeModal();
   if (!D.admin) { $('#app').innerHTML = `<div class="empty"><h2>Willkommen</h2><p>Zuerst eine Admin-PIN für die Salonleitung festlegen und das Team laden.</p><button class="act" style="display:inline-flex;margin-top:12px;padding:16px 28px" onclick="setupAdmin()">Einrichtung starten</button></div>`; refreshChrome(); return; }
   if (!D.team.length) { $('#app').innerHTML = `<div class="empty"><h2>Kein Team geladen</h2><p>Oben rechts über das Zahnrad → Team → „Team laden“ die Datei der Personalplanung wählen.</p></div>`; refreshChrome(); return; }
+  if (PHONE) { $('#app').innerHTML = `<div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub und Anträge einsehen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">Mit PIN öffnen</button></div>`; refreshChrome(); return; }
   const t = today(), y = yesterday(), now = Date.now(), h = new Date().getHours();
   const tiles = D.team.map(m => {
     const st = stateOf(m.p, t), ev = evsOf(m.p, t), last = ev[ev.length - 1], s = daySum(m.p, t, now), first = ev.find(e => e.t === 'in');
@@ -583,7 +586,7 @@ function askAdmin() {
 function admin(tab) {
   if (tab) A.tab = tab;
   const np = vacOpenN();
-  const tabs = [['status', 'Heute'], ['vac', 'Urlaub' + (np ? `<span class="cnt">${np}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']];
+  const tabs = [['status', 'Heute'], ['vac', 'Urlaub' + (np ? `<span class="cnt">${np}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']].filter(t => !(PHONE && t[0] === 'team' && D.team.length));
   const body = { status: aStatus, vac: aVac, fix: aFix, month: aMonth, team: aTeam, log: aLog }[A.tab]();
   modal(`<div class="ahead"><h3>Salonleitung</h3><button class="btn" onclick="home()">Fertig</button></div>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${A.tab === k ? 'on' : ''}" onclick="admin('${k}')">${l}</button>`).join('')}</div>${body}`, true);
