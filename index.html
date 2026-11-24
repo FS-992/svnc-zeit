@@ -268,6 +268,7 @@ function load() {
   try { D = JSON.parse(localStorage.getItem(LS)) || null; } catch (e) { D = null; }
   if (!D) D = { team: [], pins: {}, admin: '', salt: rnd(16), events: [], device: 'iPad-' + rnd(4), lastExport: 0, fails: {} };
   D.fails = D.fails || {}; D.log = D.log || []; D.unsynced = D.unsynced || 0; D.hours = D.hours || null; D.vacReqs = D.vacReqs || []; D.vacAdj = D.vacAdj || {}; D.sick = D.sick || [];
+  if ((D.team || []).length && !D.teamAt) { D.teamAt = 1; D.unsynced = (D.unsynced || 0) + 1; try { localStorage.setItem(LS, JSON.stringify(D)); } catch (e) {} } // Team einmal nach OneDrive geben
 }
 function store(changed) { if (changed) D.unsynced = (D.unsynced || 0) + 1; try { localStorage.setItem(LS, JSON.stringify(D)); } catch (e) { alert('Speichern auf diesem Gerät nicht möglich!'); } if (changed) autoQueue(); }
 function dropIpadAdj(a) { const o = {}; Object.entries(a || {}).forEach(([p, ys]) => Object.entries(ys || {}).forEach(([y, l]) => { const k = (l || []).filter(c => c.src !== 'ipad'); if (k.length) ((o[p] = o[p] || {})[y] = k); })); return o; }
@@ -340,7 +341,7 @@ const AUTO = { handle: null, ok: false, last: 0, err: '', timer: null, name: '' 
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open('svnc_zeit', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbSet(k, v) { const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); if (v == null) tx.objectStore('kv').delete(k); else tx.objectStore('kv').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
 async function idbGet(k) { const db = await idb(); return new Promise((res, rej) => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj, sick: D.sick });
+const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj, sick: D.sick, teamData: D.team.length ? { at: D.teamAt || 1, team: D.team, cal: D.cal || null, hours: D.hours || null, snap: D.snap || null } : null });
 async function autoInit() {
   if (!FS_OK) return;
   try { const h = await idbGet('handle'); if (!h) return; AUTO.handle = h; AUTO.name = h.name;
@@ -498,7 +499,7 @@ function odPanel() {
 async function odInit() {
   await odReturn(); refreshChrome();
   // Nur Handy: abgelaufene Anmeldung beim Öffnen automatisch erneuern (höchstens alle 30 Min., nie im Rücksprung von Microsoft)
-  if (PHONE && location.protocol === 'https:' && odNeedsLogin() && !/[?&](code|error)=/.test(location.search)) {
+  if ((PHONE || OFFICE) && location.protocol === 'https:' && odNeedsLogin() && !/[?&](code|error)=/.test(location.search)) {
     try { const k = 'svnc_od_auto', last = +localStorage.getItem(k) || 0; if (Date.now() - last > 1800000) { localStorage.setItem(k, String(Date.now())); odLogin(); } } catch (e) {}
   }
   if (odConnected()) odSync();
@@ -511,11 +512,17 @@ async function odInit() {
 /* ---------- Startseite ---------- */
 // Handy-Ansicht: nur Smartphones (iPhone / Android mit „Mobile“ im Browser). iPad und Android-Tablets bleiben unverändert.
 const PHONE = /iPhone|Android.*Mobile/i.test(navigator.userAgent) || /[?&]phone=1\b/.test(location.search);
+// Büro-Modus: Computer ohne Touch (Mac/PC): nur Verwaltung, keine Stempel-Kacheln, keine Admin-PIN. ?salon=1 erzwingt die Salon-Ansicht, ?office=1 den Büro-Modus.
+const OFFICE = !PHONE && ((!(navigator.maxTouchPoints > 0) && !/[?&]salon=1\b/.test(location.search)) || /[?&]office=1\b/.test(location.search));
+let OFFICE_OPENED = false;
 function home() {
   closeModal();
+  if (OFFICE && !D.admin) { D.admin = 'office'; store(); }
   if (!D.admin) { $('#app').innerHTML = `<div class="empty"><h2>Willkommen</h2><p>Zuerst eine Admin-PIN für die Salonleitung festlegen und das Team laden.</p><button class="act" style="display:inline-flex;margin-top:12px;padding:16px 28px" onclick="setupAdmin()">Einrichtung starten</button></div>`; refreshChrome(); return; }
-  if (!D.team.length) { $('#app').innerHTML = `<div class="empty"><h2>Kein Team geladen</h2><p>Oben rechts über das Zahnrad → Team → „Team laden“ die Datei der Personalplanung wählen.</p></div>`; refreshChrome(); return; }
-  if (PHONE) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub und Anträge einsehen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">Mit PIN öffnen</button></div>`; refreshChrome(); return; }
+  if (!D.team.length) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty"><h2>Kein Team geladen</h2>${OFFICE ? '<p>Zahnrad → Technik: Client-ID eintragen und bei OneDrive anmelden. Das Team kommt dann automatisch vom iPad.</p>' : '<p>Oben rechts über das Zahnrad → Team → „Team laden“ die Datei der Personalplanung wählen.</p>'}</div>`; refreshChrome(); return; }
+  if (PHONE || OFFICE) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub, Krank und Korrekturen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">${OFFICE ? 'Verwaltung öffnen' : 'Mit PIN öffnen'}</button></div>`; refreshChrome();
+    if (OFFICE && !OFFICE_OPENED) { OFFICE_OPENED = true; setTimeout(askAdmin, 60); }
+    return; }
   const t = today(), y = yesterday(), now = Date.now(), h = new Date().getHours();
   const tiles = D.team.map(m => {
     const st = stateOf(m.p, t), ev = evsOf(m.p, t), last = ev[ev.length - 1], s = daySum(m.p, t, now), first = ev.find(e => e.t === 'in');
@@ -659,6 +666,7 @@ function bioRow() {
   return `<div class="row"><div><div class="t">Fingerabdruck-Anmeldung</div><div class="d">${A.bioMsg ? esc(A.bioMsg) : D.bio ? 'Aktiv auf diesem Gerät. Die PIN funktioniert weiterhin.' : 'Salonleitung per Fingerabdruck oder Gerätesperre öffnen, statt PIN einzutippen.'}</div></div>${D.bio ? '<button class="btn danger" onclick="bioOff()">Ausschalten</button>' : '<button class="btn pri" onclick="bioOn()">Einrichten</button>'}</div>`;
 }
 function askAdmin() {
+  if (OFFICE) { D.admin = D.admin || 'office'; D.fails.admin = { n: 0 }; return admin('status'); }
   if (!D.admin) return setupAdmin();
   const bio = !!(D.bio && BIO_OK);
   pinPad('Salonleitung', 'Admin-PIN eingeben', async v => { const lk = locked('admin'); if (lk) return `Zu viele Versuche. Bitte ${lk} Sek. warten.`;
@@ -864,9 +872,9 @@ function loadTeam(inp) {
       D.team = o.team.map((x, i) => ({ p: i, name: x.name, role: x.role, jug: !!x.jug, birth: x.birth || '', zeit: x.zeit, entry: x.entry, exit: x.exit, days: x.days, v26: x.v26, v27: x.v27 }))
         .filter(x => x.name && x.zeit && (!x.entry || x.entry <= t) && (!x.exit || x.exit >= t))  .map(({ p, name, role, jug, birth, entry, days, v26, v27 }) => ({ p, name, role, jug, birth, entry, days, v26, v27 }));
       D.cal = { holidays: (o.holidays || []).map(h => h.date), closures: o.closures || [], school: o.school || [] };
-      D.snap = o.vacSnap || null; if (o.vacAdj) D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj);
+      D.snap = o.vacSnap || null; D.teamAt = Date.now(); if (o.vacAdj) D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj);
       if (Array.isArray(o.hours) && o.hours.length === 7) D.hours = o.hours.map(h => ({ a1: h.a1, a2: h.a2, b1: h.b1, b2: h.b2 }));
-      logx('Team geladen: ' + D.team.map(m => m.name).join(', ')); store(); admin('team'); } catch (e) { alert('Die Datei ist keine gültige Personalplanung.'); } };
+      logx('Team geladen: ' + D.team.map(m => m.name).join(', ')); store(true); admin('team'); } catch (e) { alert('Die Datei ist keine gültige Personalplanung.'); } };
   rd.readAsText(f);
 }
 function mergeObj(o) {
@@ -880,6 +888,8 @@ function mergeObj(o) {
   (o.vacReqs || []).forEach(r => { const c = vm.get(r.id); if (!c) { D.vacReqs.push(r); n++; } else if ((r.rev || 1) > (c.rev || 1)) { Object.assign(c, r); n++; } });
   D.sick = D.sick || []; const sm = new Map(D.sick.map(r => [r.id, r]));
   (o.sick || []).forEach(r => { const c = sm.get(r.id); if (!c) { D.sick.push(r); n++; } else if ((r.rev || 1) > (c.rev || 1)) { Object.assign(c, r); n++; } });
+  const td = o.teamData; // Team und Plan-Stand: die neuere Version gewinnt; ohne eigenes Team wird es übernommen
+  if (td && Array.isArray(td.team) && td.team.length && (!D.team.length || (td.at || 0) > (D.teamAt || 0))) { D.team = td.team; if (td.cal) D.cal = td.cal; if (Array.isArray(td.hours)) D.hours = td.hours; D.snap = td.snap || D.snap || null; D.teamAt = td.at || 1; n++; }
   if (o.vacAdj) { const b = JSON.stringify(D.vacAdj); D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj); if (JSON.stringify(D.vacAdj) !== b) n++; }
   const seen = new Set(D.log.map(l => l.ts + l.x)); (o.log || []).forEach(l => { if (!seen.has(l.ts + l.x)) D.log.push(l); }); D.log.sort((a, b) => a.ts - b.ts);
   if (D.log.length > 3000) D.log.splice(0, D.log.length - 3000);
