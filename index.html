@@ -555,7 +555,7 @@ function mine(p) {
     rows.push(`<tr><td>${WDS[wdMon(day)]}, ${dfmt(day)}</td><td>${s.b ? hm(s.b) : ''}</td><td>${s.e ? hm(s.e) : '<span style="color:var(--bad)">offen</span>'}</td><td class="r">${s.pm}</td><td class="r"><b>${s.net == null ? '' : hmin(s.net)}</b></td></tr>`); }
   modal(`<h3>Meine Zeiten</h3><div class="sub">${esc(m.name)} · letzte 31 Tage. Di–Fr wird die Mittagspause 13–14 Uhr automatisch berücksichtigt.</div>
    <table><tr><th>Tag</th><th>Kommen</th><th>Gehen</th><th class="r">Pause (Min.)</th><th class="r">Netto (Std.)</th></tr>${rows.join('') || '<tr><td colspan=5 class="small">Keine Stempelungen.</td></tr>'}</table>
-   <button class="act sec" style="width:100%;margin-top:18px" onclick="home()">Schließen</button>`, true);
+   <button class="act sec" style="width:100%;margin-top:18px" onclick="actions(${p})">Zurück</button>`, true);
   idle(60);
 }
 function changePin(p) {
@@ -799,6 +799,25 @@ function ownClash(r) { const booked = ((D.snap && D.snap.booked) || {})[r.p] || 
   D.vacReqs.forEach(o => { if (o.p !== r.p || o.id === r.id || !['approved', 'pending'].includes(o.status)) return; if (o.from <= r.to && o.to >= r.from) hit.push(o.from); });
   return hit.length; }
 
+/* Urlaubszeiträume (Personalplanung + genehmigt) zu Blöcken zusammenfassen */
+function vacRanges(p) {
+  const m = D.team.find(x => x.p === p) || {}, mp = vacDaysMap(p), ds = Object.keys(mp).sort(), yrs = vacYears(), out = [];
+  ds.forEach(d => { if (!yrs.includes(d.slice(0, 4))) return;
+    const last = out[out.length - 1];
+    let join = false;
+    if (last) { join = true; for (let x = addDay(last.to, 1); x < d; x = addDay(x, 1)) if (isWork(m, x)) { join = false; break; } }
+    if (join) { last.to = d; last.n += mp[d]; } else out.push({ from: d, to: d, n: mp[d] }); });
+  return out;
+}
+function vacPeriods(p) {
+  const t = today(), cy = t.slice(0, 4), rs = vacRanges(p);
+  const ds = d => dsh(d) + (d.slice(0, 4) !== cy ? d.slice(0, 4) : '');
+  const row = r => `<div class="row"><div><div class="t">${r.from === r.to ? ds(r.from) : ds(r.from) + ' – ' + ds(r.to)}</div></div><div class="btns"><span class="vst ${r.to < t ? 'off' : 'ok'}">${nf(r.n)} ${r.n === 1 ? 'Tag' : 'Tage'}</span></div></div>`;
+  const up = rs.filter(r => r.to >= t), past = rs.filter(r => r.to < t).reverse();
+  return `<div class="gt">Geplanter Urlaub</div><div class="group">${up.map(row).join('') || '<div class="row"><div class="small">Kein Urlaub eingetragen.</div></div>'}</div>
+   ${past.length ? `<div class="gt">Genommener Urlaub</div><div class="group">${past.map(row).join('')}</div>` : ''}`;
+}
+
 /* Mitarbeiter-Ansicht */
 function vac(p) {
   const m = D.team.find(x => x.p === p), mine = D.vacReqs.filter(r => r.p === p).sort((a, b) => b.created - a.created);
@@ -809,6 +828,7 @@ function vac(p) {
       <div class="btns"><span class="vst ${cls}">${lab}</span>${r.status === 'pending' ? `<button class="btn danger" onclick="vacWithdraw('${r.id}',${p})">Zurückziehen</button>` : ''}</div></div>`; }).join('');
   modal(`<div class="ahead"><div><h3>Urlaub</h3><div class="sub" style="margin:0">${esc(m.name)} · ${snapNote()}</div></div><button class="btn" onclick="actions(${p})">Zurück</button></div>
    ${vacYears().map((y, i) => acctTiles(p, y, i === 0)).join('')}
+   ${vacPeriods(p)}
    <div class="gt">Neuer Antrag</div>
    <div class="group" style="padding:16px 18px">
      <div class="grid2"><label class="fl">Von<input type="date" id="vf" min="${t}" max="2027-12-31" value="${t}"></label><label class="fl">Bis<input type="date" id="vt" min="${t}" max="2027-12-31" value="${t}"></label></div>
