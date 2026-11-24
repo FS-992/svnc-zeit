@@ -152,7 +152,8 @@ input[type=date]{font-size:17px;padding:10px 12px;border-radius:12px;border:0;bo
 .kpi.on{outline:2.5px solid var(--accent);outline-offset:-2px}.kpi.on .l::after{content:' ‹'}
 .vinfo:empty{display:none}.vinfo{background:var(--card);border-radius:16px;padding:6px 16px;margin-top:10px;box-shadow:inset 0 0 0 1px var(--line);font-size:14.5px;line-height:1.45}
 .vinfo .vh{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:12px 0 2px}.vinfo .row{padding:10px 0;min-height:0}
-.caly{margin-top:14px}.caly summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.03em;padding:4px 0}.caly .chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
+.caly{margin-top:14px}.caly summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.03em;padding:4px 0}.tech{margin-top:28px}.tech summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);padding:8px 4px;list-style:none}.tech summary::-webkit-details-marker{display:none}.tech summary::before{content:'▸ '}.tech[open] summary::before{content:'▾ '}.tech summary span{font-weight:500}
+.caly .chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
 .caly .chip{font-weight:500;font-size:13px}.caly .chip b{font-weight:700}.caly .chip.sch{color:var(--info)}.caly .chip.cl{color:var(--warn)}.caly .ct{font-size:12px;color:var(--muted);margin-top:10px;font-weight:600}
 .cal{margin-top:14px}.cal .ch{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.cal .ch b{font-size:16px;color:var(--ink)}.cal .ch .btn{width:48px;padding:9px 0;font-size:20px}.cal .ch .btn:disabled{opacity:.3}
 .cal .wd,.cal .cg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal .wd span{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding:2px 0}
@@ -581,7 +582,7 @@ function changePin(p) {
 }
 
 /* ---------- Salonleitung ---------- */
-const A = { tab: 'status', p: null, day: null, ym: null, reason: '' };
+const A = { tab: 'status', p: null, day: null, ym: null, reason: '', tech: false };
 function setupAdmin() {
   pinPad('Admin-PIN festlegen', '6-stellige PIN für die Salonleitung', v1 => { pinPad('Admin-PIN bestätigen', 'Zur Bestätigung noch einmal', async v2 => {
     if (v1 !== v2) return 'Nicht gleich, bitte neu beginnen'; D.admin = await hash('admin:' + v1); logx('Admin-PIN festgelegt'); store(); admin('team'); }, 6); }, 6);
@@ -594,7 +595,7 @@ function askAdmin() {
 function admin(tab) {
   if (tab) A.tab = tab;
   const np = vacOpenN();
-  const tabs = [['status', 'Status'], ['vac', 'Urlaub' + (np ? `<span class="cnt">${np}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']];
+  const tabs = [['status', 'Heute'], ['vac', 'Urlaub' + (np ? `<span class="cnt">${np}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']];
   const body = { status: aStatus, vac: aVac, fix: aFix, month: aMonth, team: aTeam, log: aLog }[A.tab]();
   modal(`<div class="ahead"><h3>Salonleitung</h3><button class="btn" onclick="home()">Fertig</button></div>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${A.tab === k ? 'on' : ''}" onclick="admin('${k}')">${l}</button>`).join('')}</div>${body}`, true);
@@ -613,12 +614,23 @@ function aStatus() {
     : `<div class="row"><div><div class="t">Noch nicht verknüpft</div><div class="d">Datei SVNC_Stempelzeiten.json im OneDrive-Ordner wählen. Danach wird jede Änderung automatisch gespeichert.</div></div><button class="btn pri" onclick="autoLink()">OneDrive-Verknüpfung</button></div>`;
   else sync = `<div class="row"><div><div class="t">${D.unsynced ? D.unsynced + (D.unsynced === 1 ? ' Änderung' : ' Änderungen') + ' noch nicht übertragen' : 'Alles übertragen'}</div><div class="d">${D.lastExport ? 'Zuletzt ' + dfmt(dkey(D.lastExport)) + ', ' + hm(D.lastExport) : 'Noch nie übertragen'}</div></div><button class="btn pri" onclick="shareExport()">Zeiten übertragen</button></div>
     <div class="row"><div class="small">Safari auf dem iPad erlaubt Webseiten kein automatisches Speichern in Dateien. Deshalb: „Zeiten übertragen“ → OneDrive bzw. „In Dateien sichern“ → <b>SVNC_Stempelzeiten.json</b> ersetzen. Es wird immer die komplette Liste übertragen.</div></div>`;
-  return `<div class="kpis"><div class="kpi"><div class="l">Jetzt im Salon</div><div class="v">${here} von ${D.team.length}</div></div>
+  const now = Date.now(), np = vacOpenN();
+  const crew = D.team.map(m => { const st = stateOf(m.p, t), sm = daySum(m.p, t, now); let dot = '', txt;
+    if (st === 'work') { dot = 'ok'; txt = 'im Salon seit ' + hm(sm.b); }
+    else if (st === 'pause') { dot = 'warn'; txt = 'in Pause'; }
+    else if (st === 'gone') { txt = 'gegangen um ' + hm(sm.e) + (sm.net != null ? ' · ' + hmin(sm.net) + ' Std.' : ''); }
+    else if (vacDaysMap(m.p)[t]) txt = vacDaysMap(m.p)[t] === 1 ? 'Urlaub' : '½ Tag Urlaub';
+    else if (!isWork(m, t)) txt = 'heute frei';
+    else txt = 'nicht eingestempelt';
+    return `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ${dot}"></span><div class="t">${esc(m.name)}</div></div><div class="d" style="margin:0">${txt}</div></div>`; }).join('');
+  const problem = s.cls === 'bad' || (odOn() && D.unsynced && (OD.needLogin || OD.err || !odConnected()));
+  const warn = !problem ? '' : `<div class="note ${s.cls === 'bad' ? 'bad' : ''}" style="margin-top:0;margin-bottom:6px">Zeiten warten auf die Sicherung: ${esc(s.txt)} <button class="btn" style="margin-left:10px" onclick="A.tech=true;admin('status')">Details</button></div>`;
+  return `${warn}<div class="kpis"><div class="kpi"><div class="l">Jetzt im Salon</div><div class="v">${here} von ${D.team.length}</div></div>
     <div class="kpi"><div class="l">Offene Schichten</div><div class="v" style="color:${iss.length ? 'var(--bad)' : 'var(--ok)'}">${iss.length ? iss.length : 'Keine'}</div></div>
-    <div class="kpi" onclick="admin('vac')" style="cursor:pointer"><div class="l">Urlaubsanträge</div><div class="v" style="color:${D.vacReqs.some(r => r.status === 'pending') ? 'var(--accent)' : 'var(--ink)'}">${D.vacReqs.filter(r => r.status === 'pending').length || 'Keine'} <span style="font-size:13px;font-weight:500;color:var(--muted)">offen</span></div></div>
-    <div class="kpi"><div class="l">Übertragung</div><div class="v" style="font-size:15px;font-weight:600;margin-top:8px;line-height:1.35"><span class="dot ${s.cls}" style="margin-right:6px"></span>${esc(s.txt)}</div></div></div>
+    <div class="kpi" onclick="admin('vac')" style="cursor:pointer"><div class="l">Urlaub</div><div class="v" style="color:${np ? 'var(--accent)' : 'var(--ink)'}">${np || 'Keine'} <span style="font-size:13px;font-weight:500;color:var(--muted)">offen</span></div></div></div>
+   <div class="gt">Heute im Salon</div><div class="group">${crew}</div>
    <div class="gt">Tages-Ende-Check</div><div class="group">${list || `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ok"></span><div class="t">Alle Schichten sauber geschlossen</div></div></div>`}</div>
-   <div class="gt">OneDrive</div><div class="group">${sync}</div>`;
+   <details class="tech" id="tech"${A.tech ? ' open' : ''} ontoggle="A.tech=this.open"><summary>Technik &amp; Übertragung <span>(OneDrive, Abgleich, Anmeldung)</span></summary><div class="group">${sync}</div></details>`;
 }
 function aFix() {
   const t = today(), y = yesterday();
