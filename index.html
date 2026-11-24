@@ -154,6 +154,14 @@ input[type=date]{font-size:17px;padding:10px 12px;border-radius:12px;border:0;bo
 .vinfo .vh{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:12px 0 2px}.vinfo .row{padding:10px 0;min-height:0}
 .caly{margin-top:14px}.caly summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.03em;padding:4px 0}.caly .chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
 .caly .chip{font-weight:500;font-size:13px}.caly .chip b{font-weight:700}.caly .chip.sch{color:var(--info)}.caly .chip.cl{color:var(--warn)}.caly .ct{font-size:12px;color:var(--muted);margin-top:10px;font-weight:600}
+.cal{margin-top:14px}.cal .ch{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.cal .ch b{font-size:16px;color:var(--ink)}.cal .ch .btn{width:48px;padding:9px 0;font-size:20px}.cal .ch .btn:disabled{opacity:.3}
+.cal .wd,.cal .cg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.cal .wd span{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding:2px 0}
+.cd{border:0;border-radius:12px;height:46px;font-size:16px;font-weight:600;background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line);position:relative;padding:0;-webkit-tap-highlight-color:transparent}
+.cd.off{color:var(--muted);background:var(--card2);font-weight:500}.cd.sch{background:var(--info-soft);box-shadow:inset 0 0 0 1px rgba(10,93,194,.25)}.cd.clo{background:var(--warn-soft);color:var(--warn);box-shadow:inset 0 0 0 1px rgba(154,74,0,.3)}
+.cd.hol{color:var(--bad);font-weight:800;background:var(--bad-soft);box-shadow:inset 0 0 0 1px rgba(196,0,26,.3)}.cd.own::after{content:'';position:absolute;left:50%;bottom:5px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--accent)}
+.cd.today{box-shadow:inset 0 0 0 2px var(--ink)}.cd.past{opacity:.3}.cd.sel{background:var(--accent);color:var(--on-accent);box-shadow:none}.cd.sel.own::after{background:#fff}.cd.sel.e{box-shadow:inset 0 0 0 3px var(--accent-soft)}
+.cal .lg{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:10px;font-size:12.5px;color:var(--muted)}.cal .lg i{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-2px;margin-right:5px;box-shadow:inset 0 0 0 1px var(--line)}
+.vsel{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}.vsel small{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:2px}
 .vcal{font-size:13.5px;color:var(--muted);margin-top:10px;line-height:1.5}.vcal:empty{display:none}
 .vst{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px}.vst.warn{background:var(--warn-soft);color:var(--warn)}.vst.ok{background:var(--ok-soft);color:var(--ok)}.vst.bad{background:var(--bad-soft);color:var(--bad)}.vst.off{background:var(--card2);color:var(--muted)}
 .req{background:var(--card2);border-radius:18px;padding:18px;margin:12px 0;box-shadow:inset 0 0 0 1px var(--line)}
@@ -492,7 +500,7 @@ function home() {
 }
 function refreshChrome() {
   const iss = D.admin ? issues() : [], s = syncLine(), b = $('#gbadge');
-  const np = D.admin ? D.vacReqs.filter(r => r.status === 'pending').length : 0, n = iss.length + np + (s.cls === 'bad' ? 1 : 0);
+  const np = D.admin ? vacOpenN() : 0, n = iss.length + np + (s.cls === 'bad' ? 1 : 0);
   b.innerHTML = n ? `<span class="badge ${iss.some(x => x.kind === 'open') || s.cls === 'bad' ? '' : 'warn'}">${n}</span>` : '';
   $('#foot1').innerHTML = `<span class="dot ${s.cls}" style="margin-right:6px;vertical-align:middle"></span>${esc(s.txt)}`;
   $('#foot1').onclick = odNeedsLogin() ? odLogin : null; $('#foot1').style.cursor = odNeedsLogin() ? 'pointer' : '';
@@ -535,11 +543,12 @@ function pick(p) {
 function actions(p) {
   const m = D.team.find(x => x.p === p), t = today(), st = stateOf(p, t), s = daySum(p, t, Date.now());
   const news = D.vacReqs.filter(r => r.p === p && r.decided && !r.seen && ['approved', 'rejected', 'cancelled'].includes(r.status));
+  const cxn = D.vacReqs.filter(r => r.p === p && r.cx && r.cx.st === 'rejected' && !r.cx.seen);
   const btn = (k, cls, label) => `<button class="act ${cls}" onclick="stamp(${p},'${k}')">${label}</button>`;
   const a = { off: btn('in', 'in', 'Kommen'), gone: btn('in', 'in', 'Wieder kommen'), work: btn('out', 'out', 'Gehen'), pause: `<div class="grid2">${btn('pe', 'pe', 'Pause beenden')}${btn('out', 'out', 'Gehen')}</div>` }[st];
   modal(`<h3>Hallo ${esc(m.name)}</h3><div class="sub">${st === 'off' ? 'Heute noch nicht eingestempelt.' : `Heute ${hmin(s.net)} Std. gearbeitet · ${s.pm} Min. Pause${s.lunch ? ' (inkl. Mittagspause)' : ''}`}</div>
-   ${news.length ? `<div class="note ${news.some(r => r.status === 'approved') ? 'ok' : 'bad'}" style="margin:0 0 14px">${news.map(r => `Urlaub ${span(r)}: <b>${VST[r.status][0]}</b>${r.reason ? ' – ' + esc(r.reason) : ''}`).join('<br>')}</div>` : ''}
-   <div class="acts">${a}<div class="grid3"><button class="act sec" onclick="mine(${p})">Meine Zeiten</button><button class="act sec" onclick="vac(${p})">Urlaub${news.length ? '<span class="newbadge"></span>' : ''}</button><button class="act sec" onclick="changePin(${p})">PIN ändern</button></div><button class="act sec" onclick="home()">Abbrechen</button></div>`);
+   ${news.length || cxn.length ? `<div class="note ${news.some(r => r.status === 'approved') && !cxn.length ? 'ok' : 'bad'}" style="margin:0 0 14px">${news.map(r => `Urlaub ${span(r)}: <b>${VST[r.status][0]}</b>${r.reason ? ' – ' + esc(r.reason) : ''}`).concat(cxn.map(r => `Stornierung ${span(r)}: <b>Abgelehnt</b>${r.cx.reason ? ' – ' + esc(r.cx.reason) : ''}`)).join('<br>')}</div>` : ''}
+   <div class="acts">${a}<div class="grid3"><button class="act sec" onclick="mine(${p})">Meine Zeiten</button><button class="act sec" onclick="vac(${p})">Urlaub${news.length || cxn.length ? '<span class="newbadge"></span>' : ''}</button><button class="act sec" onclick="changePin(${p})">PIN ändern</button></div><button class="act sec" onclick="home()">Abbrechen</button></div>`);
   idle(30);
 }
 function stamp(p, t) {
@@ -584,7 +593,7 @@ function askAdmin() {
 }
 function admin(tab) {
   if (tab) A.tab = tab;
-  const np = D.vacReqs.filter(r => r.status === 'pending').length;
+  const np = vacOpenN();
   const tabs = [['status', 'Status'], ['vac', 'Urlaub' + (np ? `<span class="cnt">${np}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']];
   const body = { status: aStatus, vac: aVac, fix: aFix, month: aMonth, team: aTeam, log: aLog }[A.tab]();
   modal(`<div class="ahead"><h3>Salonleitung</h3><button class="btn" onclick="home()">Fertig</button></div>
@@ -756,6 +765,8 @@ const addDay = (ds, n) => { const [y, m, d] = ds.split('-').map(Number); return 
 const dsh = ds => WDS[wdMon(ds)] + ', ' + Number(ds.slice(8, 10)) + '.' + Number(ds.slice(5, 7)) + '.';
 const nf = x => { const r = Math.round(x * 2) / 2; return (r % 1 ? r.toFixed(1) : String(r)).replace('.', ','); };
 const VST = { pending: ['Offen', 'warn'], approved: ['Genehmigt', 'ok'], rejected: ['Abgelehnt', 'bad'], withdrawn: ['Zurückgezogen', 'off'], cancelled: ['Storniert', 'off'] };
+const cxAsk = r => r.status === 'approved' && r.cx && r.cx.st === 'ask';
+const vacOpenN = () => D.vacReqs.filter(r => r.status === 'pending' || cxAsk(r)).length;
 const span = r => r.from === r.to ? dsh(r.from) + (r.half ? ' (½ Tag)' : '') : dsh(r.from) + ' – ' + dsh(r.to);
 function isWork(m, ds) {
   const h = hoursOf(ds); if (!h.a1) return false;
@@ -830,7 +841,7 @@ function calLegend(m) { // kommende Feiertage und Schulferien als Übersicht
   const t = today(), y0 = Number(t.slice(0, 4)), hs = [];
   [y0, y0 + 1].forEach(y => bwHolidays(String(y)).forEach(([d, n]) => { if (d >= t && d <= (y0 + 1) + '-12-31') hs.push([d, n]); }));
   const sc = schoolList(m).filter(x => x.to >= t && x.from <= (y0 + 1) + '-12-31'), cl = ((D.cal && D.cal.closures) || []).filter(c => c.to >= t);
-  return `<details class="caly" open><summary>Feiertage${sc.length ? ' &amp; Schulferien' : ''} (Baden-Württemberg)</summary>
+  return `<details class="caly"><summary>Feiertage${sc.length ? ' &amp; Schulferien' : ''} (Baden-Württemberg)</summary>
     <div class="chips">${hs.map(([d, n]) => `<span class="chip"><b>${dsh(d)}</b> ${esc(n)}</span>`).join('')}</div>
     ${cl.length ? `<div class="ct">Salon geschlossen</div><div class="chips">${cl.map(c => `<span class="chip cl"><b>${rng(c.from, c.to)}</b> ${esc(c.name || '')}</span>`).join('')}</div>` : ''}
     ${sc.length ? `<div class="ct">Schulferien</div><div class="chips">${sc.map(x => `<span class="chip sch"><b>${rng(x.from, x.to)}</b> ${esc(x.name)}</span>`).join('')}</div>` : ''}</details>`;
@@ -871,19 +882,64 @@ function vacTile(p, y, k) {
   box.dataset.k = same ? '' : k; box.innerHTML = same ? '' : vacDetail(p, y, k);
 }
 
+/* ---------- eigener Kalender für den Urlaubsantrag (Feiertage, Schulferien, Schließzeiten markiert) ---------- */
+const CAL = { ym: '', step: 0 };
+const CAL_MAX = '2027-12-31', MN = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+function calPickState(f, to, step, ds) { // pure: erster Tipp = Beginn, zweiter Tipp = Ende
+  if (step === 1) return ds >= f ? { f, to: ds, step: 0 } : { f: ds, to: ds, step: 1 };
+  return { f: ds, to: ds, step: 1 };
+}
+function calGridHtml(p, ym, f, to, t) {
+  const m = D.team.find(x => x.p === p) || {}, [Y, M] = ym.split('-').map(Number), first = ym + '-01', n = new Date(Y, M, 0).getDate();
+  const hol = new Set(bwHolidays(String(Y)).map(h => h[0])), cl = (D.cal && D.cal.closures) || [], sc = schoolList(m), own = new Set(Object.keys(vacDaysMap(p)));
+  D.vacReqs.forEach(r => { if (r.p === p && r.status === 'pending') for (let d = r.from; d <= r.to; d = addDay(d, 1)) own.add(d); });
+  let cells = '<span></span>'.repeat(wdMon(first));
+  for (let i = 1; i <= n; i++) {
+    const ds = ym + '-' + String(i).padStart(2, '0'), c = ['cd'], past = ds < t || ds > CAL_MAX;
+    if (hol.has(ds)) c.push('hol'); else if (cl.some(x => x.from <= ds && x.to >= ds)) c.push('clo'); else if (!isWork(m, ds)) c.push('off');
+    if (sc.some(x => x.from <= ds && x.to >= ds)) c.push('sch');
+    if (own.has(ds)) c.push('own');
+    if (ds === t) c.push('today');
+    if (past) c.push('past');
+    if (f && ds >= f && ds <= to) { c.push('sel'); if (ds === f || ds === to) c.push('e'); }
+    cells += `<button type="button" class="${c.join(' ')}"${past ? ' disabled' : ''} onclick="calPick(${p},'${ds}')">${i}</button>`;
+  }
+  const t0 = t.slice(0, 7);
+  return `<div class="ch"><button type="button" class="btn" onclick="calNav(${p},-1)"${ym <= t0 ? ' disabled' : ''}>‹</button><b>${MN[M - 1]} ${Y}</b><button type="button" class="btn" onclick="calNav(${p},1)"${ym >= CAL_MAX.slice(0, 7) ? ' disabled' : ''}>›</button></div>
+    <div class="wd">${WDS.map(w => `<span>${w}</span>`).join('')}</div><div class="cg">${cells}</div>
+    <div class="lg"><span><i style="background:var(--bad-soft)"></i>Feiertag</span><span><i style="background:var(--warn-soft)"></i>Salon geschlossen</span>${m.jug ? '<span><i style="background:var(--info-soft)"></i>Schulferien</span>' : ''}<span><i style="background:var(--card2)"></i>kein Arbeitstag</span><span><i style="background:var(--accent)"></i>Auswahl</span><span>● eigener Urlaub</span></div>`;
+}
+function calDraw(p) {
+  const box = $('#vcg'); if (!box) return; const t = today(), f = $('#vf').value, to = $('#vt').value;
+  if (!CAL.ym) CAL.ym = t.slice(0, 7);
+  box.innerHTML = calGridHtml(p, CAL.ym, f, to, t);
+  $('#vsel').innerHTML = f ? `Gewählt: ${rng(f, to)}${CAL.step === 1 ? '<small>Jetzt den letzten Urlaubstag antippen (oder denselben Tag noch einmal für einen einzelnen Tag).</small>' : ''}` : 'Bitte den ersten Urlaubstag antippen.';
+}
+function calNav(p, k) {
+  const [Y, M] = CAL.ym.split('-').map(Number), d = new Date(Y, M - 1 + k, 1), ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  if (ym < today().slice(0, 7) || ym > CAL_MAX.slice(0, 7)) return; CAL.ym = ym; calDraw(p); idle(150);
+}
+function calPick(p, ds) {
+  const r = calPickState($('#vf').value, $('#vt').value, CAL.step, ds); CAL.step = r.step; $('#vf').value = r.f; $('#vt').value = r.to;
+  calDraw(p); vacCalc(p);
+}
+
 /* Mitarbeiter-Ansicht */
 function vac(p) {
+  CAL.ym = ''; CAL.step = 0;
   const m = D.team.find(x => x.p === p), mine = D.vacReqs.filter(r => r.p === p).sort((a, b) => b.created - a.created);
-  mine.forEach(r => { if (r.decided && !r.seen) { r.seen = Date.now(); } }); store();
+  mine.forEach(r => { if (r.decided && !r.seen) { r.seen = Date.now(); } if (r.cx && r.cx.st === 'rejected' && !r.cx.seen) r.cx.seen = Date.now(); }); store();
   const t = today();
   const list = mine.slice(0, 12).map(r => { const [lab, cls] = VST[r.status];
-    return `<div class="row"><div><div class="t">${span(r)}</div><div class="d">${nf(sumV(reqDays(r)))} Arbeitstage${r.note ? ' · ' + esc(r.note) : ''}${r.reason ? ' · Antwort: ' + esc(r.reason) : ''}</div></div>
-      <div class="btns"><span class="vst ${cls}">${lab}</span>${r.status === 'pending' ? `<button class="btn danger" onclick="vacWithdraw('${r.id}',${p})">Zurückziehen</button>` : ''}</div></div>`; }).join('');
+    const cxx = r.status === 'approved' && r.from > t ? (cxAsk(r) ? `<span class="vst warn">Stornierung angefragt</span><button class="btn" onclick="vacCancelBack('${r.id}',${p})">Zurücknehmen</button>` : `<button class="btn danger" onclick="vacCancelAsk('${r.id}',${p})">Stornierung anfragen</button>`) : '';
+    return `<div class="row"><div><div class="t">${span(r)}</div><div class="d">${nf(sumV(reqDays(r)))} Arbeitstage${r.note ? ' · ' + esc(r.note) : ''}${r.reason ? ' · Antwort: ' + esc(r.reason) : ''}${r.cx && r.cx.st === 'rejected' ? ' · Stornierung abgelehnt' + (r.cx.reason ? ': ' + esc(r.cx.reason) : '') : ''}</div></div>
+      <div class="btns"><span class="vst ${cls}">${lab}</span>${r.status === 'pending' ? `<button class="btn danger" onclick="vacWithdraw('${r.id}',${p})">Zurückziehen</button>` : ''}${cxx}</div></div>`; }).join('');
   modal(`<div class="ahead"><div><h3>Urlaub</h3><div class="sub" style="margin:0">${esc(m.name)} · ${snapNote()}</div></div><button class="btn" onclick="actions(${p})">Zurück</button></div>
    ${vacYears().map((y, i) => acctTiles(p, y, i === 0, true)).join('')}
    <div class="gt">Neuer Antrag</div>
    <div class="group" style="padding:16px 18px">
-     <div class="grid2"><label class="fl">Von<input type="date" id="vf" min="${t}" max="2027-12-31" value="${t}"></label><label class="fl">Bis<input type="date" id="vt" min="${t}" max="2027-12-31" value="${t}"></label></div>
+     <input type="hidden" id="vf" value="${t}"><input type="hidden" id="vt" value="${t}">
+     <div id="vsel" class="vsel"></div><div id="vcg" class="cal"></div>
      <label class="tgl"><input type="checkbox" id="vh"><span></span>Halber Tag</label>
      <input type="text" id="vn" placeholder="Bemerkung (optional)" maxlength="120" style="margin-top:12px">
      ${calLegend(m)}
@@ -894,7 +950,7 @@ function vac(p) {
    <div class="gt">Meine Anträge</div><div class="group">${list || '<div class="row"><div class="small">Noch keine Anträge.</div></div>'}</div>`, true);
   ['vf', 'vt', 'vh'].forEach(id => $('#' + id).addEventListener('input', () => vacCalc(p)));
   ['vf', 'vt', 'vh'].forEach(id => $('#' + id).addEventListener('change', () => vacCalc(p)));
-  vacCalc(p); idle(150);
+  calDraw(p); vacCalc(p); idle(150);
 }
 function vacDraft(p) { const f = $('#vf').value, t = $('#vt').value, single = f && f === t;
   $('#vh').disabled = !single; if (!single) $('#vh').checked = false;
@@ -921,6 +977,22 @@ function vacSend(p) {
   modal(`<div class="done"><div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="msg">Antrag gestellt</div><div class="sub" style="margin:8px 0 0">${span(req)} · ${nf(req.days)} Arbeitstage<br>Die Salonleitung wird informiert.</div></div><button class="act sec" style="width:100%;margin-top:18px" onclick="home()">Fertig</button>`);
   idle(8);
 }
+function vacCancelAsk(id, p) {
+  const r = D.vacReqs.find(x => x.id === id); if (!r || r.status !== 'approved' || r.from <= today()) return;
+  modal(`<h3>Stornierung anfragen</h3><div class="sub">${esc(r.name)} · ${span(r)} · ${nf(sumV(reqDays(r)))} Arbeitstage<br>Der Urlaub bleibt bestehen, bis die Salonleitung die Stornierung bestätigt.</div>
+   <input type="text" id="cxn" placeholder="Grund (optional)" maxlength="120">
+   <div class="acts" style="margin-top:16px"><button class="act" onclick="vacCancelSend('${id}',${p})">Anfrage senden</button><button class="act sec" onclick="vac(${p})">Zurück</button></div>`);
+  idle(120);
+}
+function vacCancelSend(id, p) {
+  const r = D.vacReqs.find(x => x.id === id); if (!r || r.status !== 'approved' || r.from <= today()) return vac(p);
+  const note = ($('#cxn').value || '').trim(); r.cx = { st: 'ask', ts: Date.now(), note }; r.rev = (r.rev || 1) + 1;
+  logx(`Stornierung angefragt ${r.name} ${span(r)}${note ? ' – ' + note : ''}`); store(true);
+  modal(`<div class="done"><div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><div class="msg">Anfrage gesendet</div><div class="sub" style="margin:8px 0 0">${span(r)}<br>Der Urlaub bleibt bestehen, bis die Salonleitung entscheidet.</div></div><button class="act sec" style="width:100%;margin-top:18px" onclick="vac(${p})">Zurück zum Urlaub</button>`);
+  idle(20);
+}
+function vacCancelBack(id, p) { const r = D.vacReqs.find(x => x.id === id); if (!r || !cxAsk(r) || !confirm('Stornierungsanfrage zurücknehmen? Der Urlaub bleibt bestehen.')) return;
+  r.cx.st = 'withdrawn'; r.rev = (r.rev || 1) + 1; logx(`Stornierungsanfrage ${r.name} ${span(r)} zurückgenommen`); store(true); vac(p); }
 function vacWithdraw(id, p) { const r = D.vacReqs.find(x => x.id === id); if (!r || r.status !== 'pending' || !confirm('Antrag zurückziehen?')) return;
   r.status = 'withdrawn'; r.rev++; logx(`Urlaubsantrag ${r.name} ${span(r)} zurückgezogen`); store(true); vac(p); }
 
@@ -934,13 +1006,18 @@ function aVac() {
       ${r.note ? `<div class="small" style="margin-top:8px">„${esc(r.note)}“</div>` : ''}
       ${ov.length ? `<div class="note" style="margin-top:10px">Gleichzeitig weg: ${esc(ov.join('; '))}</div>` : ''}${own ? '<div class="note bad" style="margin-top:10px">Überschneidet sich mit eigenem Urlaub.</div>' : ''}${after != null && after < 0 ? '<div class="note bad" style="margin-top:10px">Resturlaub reicht nicht.</div>' : ''}
       <div class="btns" style="margin-top:12px"><input type="text" id="rr-${r.id}" placeholder="Antwort (optional)" style="flex:1;min-width:180px"><button class="btn danger" onclick="vacDecide('${r.id}','rejected')">Ablehnen</button><button class="btn pri ok" onclick="vacDecide('${r.id}','approved')">Genehmigen</button></div></div>`; }).join('');
+  const applied0 = new Set((D.snap && D.snap.applied) || []);
+  const cxHtml = D.vacReqs.filter(cxAsk).sort((a, b) => a.from < b.from ? -1 : 1).map(r => `<div class="req"><div class="rq-h"><div style="display:flex;gap:12px;align-items:center"><div class="av" style="width:44px;height:44px;font-size:17px">${esc(r.name.slice(0, 1))}</div><div><div class="t" style="font-size:17px;font-weight:600">${esc(r.name)}</div><div class="d">${span(r)} · <b>${nf(sumV(reqDays(r)))} Arbeitstage</b> · angefragt ${dfmt(dkey(r.cx.ts))}</div></div></div></div>
+      ${r.cx.note ? `<div class="small" style="margin-top:8px">Grund: „${esc(r.cx.note)}“</div>` : ''}
+      ${applied0.has(r.id) ? '<div class="note" style="margin-top:10px">Schon im Monatsplan der Personalplanung eingetragen. Bei Bestätigung dort bitte wieder austragen.</div>' : ''}
+      <div class="btns" style="margin-top:12px"><input type="text" id="rr-${r.id}" placeholder="Antwort (optional)" style="flex:1;min-width:180px"><button class="btn danger" onclick="vacCxNo('${r.id}')">Ablehnen</button><button class="btn pri ok" onclick="vacDecide('${r.id}','cancelled')">Stornierung bestätigen</button></div></div>`).join('');
   const ys = vacYears();
   const konten = D.team.map(m => ys.map((y, i) => { const a = acct(m.p, y);
     return `<tr><td>${i ? '' : `<b>${esc(m.name)}</b>`}</td><td>${y}</td>${a.none ? '<td class="r" colspan=5 style="color:var(--muted)">nicht hinterlegt</td>' : `<td class="r">${nf(a.base)}</td><td class="r">${a.adj ? (a.adj > 0 ? '+' : '') + nf(a.adj) : '–'}</td><td class="r">${nf(a.booked)}</td><td class="r">${a.pend ? nf(a.pend) : '–'}</td><td class="r"><b style="color:${a.rest < 0 ? 'var(--bad)' : 'var(--ink)'}">${nf(a.rest)}</b></td>`}<td class="r"><button class="btn" style="padding:7px 12px" onclick="vacAdjForm(${m.p},'${y}')">Anpassen</button></td></tr>`; }).join('')).join('');
   const t = today(), appr = D.vacReqs.filter(r => r.status === 'approved' && r.to >= t).sort((a, b) => a.from < b.from ? -1 : 1);
   const applied = new Set((D.snap && D.snap.applied) || []);
-  const up = appr.map(r => `<div class="row"><div><div class="t">${esc(r.name)} · ${span(r)}</div><div class="d">${nf(sumV(reqDays(r)))} Arbeitstage · ${applied.has(r.id) ? 'im Monatsplan eingetragen' : 'wird beim nächsten Abholen in den Monatsplan übernommen'}</div></div><button class="btn danger" onclick="vacDecide('${r.id}','cancelled')">Stornieren</button></div>`).join('');
-  return `<div class="gt">Offene Anträge</div>${inbox || '<div class="group"><div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ok"></span><div class="t">Keine offenen Anträge</div></div></div></div>'}
+  const up = appr.map(r => `<div class="row"><div><div class="t">${esc(r.name)} · ${span(r)}</div><div class="d">${nf(sumV(reqDays(r)))} Arbeitstage${cxAsk(r) ? ' · <b>Stornierung angefragt</b>' : ''} · ${applied.has(r.id) ? 'im Monatsplan eingetragen' : 'wird beim nächsten Abholen in den Monatsplan übernommen'}</div></div><button class="btn danger" onclick="vacDecide('${r.id}','cancelled')">Stornieren</button></div>`).join('');
+  return `${cxHtml ? `<div class="gt">Stornierungsanfragen</div>${cxHtml}` : ''}<div class="gt">Offene Anträge</div>${inbox || '<div class="group"><div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ok"></span><div class="t">Keine offenen Anträge</div></div></div></div>'}
    <div class="gt">Urlaubskonten · ${snapNote()}</div><div class="group" style="padding:4px 14px"><table><tr><th>Mitarbeiter(in)</th><th>Jahr</th><th class="r">Anspruch</th><th class="r">Korrektur</th><th class="r">Verplant</th><th class="r">Beantragt</th><th class="r">Rest</th><th></th></tr>${konten}</table></div>
    <div class="gt">Genehmigter Urlaub (kommend)</div><div class="group">${up || '<div class="row"><div class="small">Kein kommender Urlaub genehmigt.</div></div>'}</div>
    <p class="small">Genehmigte Anträge werden beim nächsten „Stempelzeiten abholen“ in der Personalplanung automatisch als Urlaub (U bzw. ½ Urlaub) in den Monatsplan eingetragen und vom Urlaubskonto abgezogen. Korrekturen hier (z. B. Resturlaub aus dem Vorjahr) werden ebenfalls übernommen.</p>`;
@@ -948,9 +1025,17 @@ function aVac() {
 function vacDecide(id, st) {
   const r = D.vacReqs.find(x => x.id === id); if (!r) return; const inp = $('#rr-' + id), reason = inp ? inp.value.trim() : '';
   if (st === 'approved') { const y = r.from.slice(0, 4), a = acct(r.p, y), n = reqDays(r)[y] || 0; if (!a.none && a.rest - n < 0 && !confirm(`Der Resturlaub von ${r.name} reicht nicht (${nf(a.rest)} Tage, beantragt ${nf(n)}). Trotzdem genehmigen?`)) return; }
-  if (st === 'cancelled' && !confirm(`Genehmigten Urlaub von ${r.name} (${span(r)}) stornieren?`)) return;
+  if (st === 'cancelled' && !cxAsk(r) && !confirm(`Genehmigten Urlaub von ${r.name} (${span(r)}) stornieren?`)) return;
+  const wasApplied = st === 'cancelled' && ((D.snap && D.snap.applied) || []).includes(r.id);
+  if (st === 'cancelled' && r.cx && r.cx.st === 'ask') r.cx.st = 'done';
   r.status = st; r.reason = reason; r.decided = Date.now(); r.seen = 0; r.rev = (r.rev || 1) + 1;
   logx(`Urlaub ${r.name} ${span(r)}: ${VST[st][0]}${reason ? ' – ' + reason : ''}`); store(true); admin('vac');
+  if (wasApplied) alert(`Bitte ${r.name} (${span(r)}) in der Personalplanung wieder aus dem Monatsplan austragen. Dort ist der Urlaub bereits eingetragen.`);
+}
+function vacCxNo(id) {
+  const r = D.vacReqs.find(x => x.id === id); if (!r || !cxAsk(r)) return; const inp = $('#rr-' + id), reason = inp ? inp.value.trim() : '';
+  r.cx.st = 'rejected'; r.cx.reason = reason; r.cx.dts = Date.now(); r.cx.seen = 0; r.rev = (r.rev || 1) + 1;
+  logx(`Stornierung ${r.name} ${span(r)}: abgelehnt${reason ? ' – ' + reason : ''}`); store(true); admin('vac');
 }
 function vacAdjForm(p, y) {
   const m = D.team.find(x => x.p === p), list = adjOf(p, y).map(a => `<div class="row"><div><div class="t">${a.n > 0 ? '+' : ''}${nf(a.n)} Tage</div><div class="d">${esc(a.x || '')} · ${dfmt(dkey(a.ts))}</div></div></div>`).join('');
