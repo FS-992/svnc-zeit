@@ -341,7 +341,7 @@ const AUTO = { handle: null, ok: false, last: 0, err: '', timer: null, name: '' 
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open('svnc_zeit', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbSet(k, v) { const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); if (v == null) tx.objectStore('kv').delete(k); else tx.objectStore('kv').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
 async function idbGet(k) { const db = await idb(); return new Promise((res, rej) => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj, sick: D.sick, dev: D.dev, teamData: D.team.length ? { at: D.teamAt || 1, team: D.team, cal: D.cal || null, hours: D.hours || null, snap: D.snap || null } : null });
+const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj, sick: D.sick, dev: D.dev, teamData: D.team.length ? { at: D.teamAt || 1, planAt: D.planAt || 0, team: D.team, cal: D.cal || null, hours: D.hours || null, snap: D.snap || null } : null });
 async function autoInit() {
   if (!FS_OK) return;
   try { const h = await idbGet('handle'); if (!h) return; AUTO.handle = h; AUTO.name = h.name;
@@ -436,10 +436,11 @@ async function odErrCode(r) { try { const j = await r.clone().json(), e = j && j
 async function odSync() {
   if (!odConnected() || OD.busy) return;
   if (!navigator.onLine) { OD.err = 'kein Internet'; refreshChrome(); return; }
-  OD.busy = true; clearTimeout(OD.timer); OD.timer = null;
+  OD.busy = true; clearTimeout(OD.timer); OD.timer = null; let feed = false;
   try {
     for (let tries = 0; tries < 4; tries++) {
       let etag = null, pulled = 0;
+      if (tries === 0) { try { const tf = await odTeamFeed(); if (tf) { applyPlan(tf, tf.at); feed = true; } } catch (e) { /* Feed ist optional */ } }
       const mr = await odGraph('');
       if (mr.status === 200) {
         etag = (await mr.json()).eTag;
@@ -457,7 +458,7 @@ async function odSync() {
         D.unsynced = Math.max(0, (D.unsynced || 0) - u); D.lastExport = Date.now();
       }
       OD.cfg.last = Date.now(); OD.err = ''; odSave(); store();
-      if (pulled && !$('#modal').innerHTML) home();
+      if ((pulled || feed) && !$('#modal').innerHTML) home();
       break;
     }
   } catch (e) { OD.err = OD.needLogin ? '' : (e.name === 'TypeError' ? 'keine Verbindung' : (e.message || 'Fehler')); }
@@ -969,17 +970,26 @@ function aLog() {
 }
 function setPin(p) { const m = D.team.find(x => x.p === p);
   pinPad('PIN für ' + esc(m.name), 'Start-PIN eingeben (4 Ziffern)', async v => { D.pins[p] = await hash(p + ':' + v); logx(`${m.name}: PIN durch Salonleitung gesetzt`); store(); admin('team'); }); }
+function applyPlan(o, at) { // Team, Kalender, Öffnungszeiten und Plan-Stand aus der Personalplanung übernehmen (Datei oder OneDrive-Feed)
+  const t = today(), oldPay = {}; (D.team || []).forEach(x => { if (x.pay) oldPay[x.name] = x.pay; });
+  D.team = o.team.map((x, i) => ({ p: i, name: x.name, role: x.role, jug: !!x.jug, birth: x.birth || '', zeit: x.zeit, entry: x.entry, exit: x.exit, days: x.days, v26: x.v26, v27: x.v27 }))
+    .filter(x => x.name && x.zeit && (!x.entry || x.entry <= t) && (!x.exit || x.exit >= t)).map(({ p, name, role, jug, birth, entry, days, v26, v27 }) => ({ p, name, role, jug, birth, entry, days, v26, v27, pay: oldPay[name] || 'h' }));
+  D.cal = { holidays: (o.holidays || []).map(h => (h && h.date) || h), closures: o.closures || [], school: o.school || [] };
+  D.snap = o.vacSnap || null; D.teamAt = Date.now(); D.planAt = at || 0; if (o.vacAdj) D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj);
+  if (Array.isArray(o.hours) && o.hours.length === 7) D.hours = o.hours.map(h => ({ a1: h.a1, a2: h.a2, b1: h.b1, b2: h.b2 }));
+  logx('Team geladen: ' + D.team.map(m => m.name).join(', ')); store(true);
+}
 function loadTeam(inp) {
   const f = inp.files[0]; if (!f) return; const rd = new FileReader();
-  rd.onload = () => { try { const o = JSON.parse(rd.result); if (!o.team) throw 0; const t = today();
-      const oldPay = {}; (D.team || []).forEach(x => { if (x.pay) oldPay[x.name] = x.pay; });
-      D.team = o.team.map((x, i) => ({ p: i, name: x.name, role: x.role, jug: !!x.jug, birth: x.birth || '', zeit: x.zeit, entry: x.entry, exit: x.exit, days: x.days, v26: x.v26, v27: x.v27 }))
-        .filter(x => x.name && x.zeit && (!x.entry || x.entry <= t) && (!x.exit || x.exit >= t))  .map(({ p, name, role, jug, birth, entry, days, v26, v27 }) => ({ p, name, role, jug, birth, entry, days, v26, v27, pay: oldPay[name] || 'h' }));
-      D.cal = { holidays: (o.holidays || []).map(h => h.date), closures: o.closures || [], school: o.school || [] };
-      D.snap = o.vacSnap || null; D.teamAt = Date.now(); if (o.vacAdj) D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj);
-      if (Array.isArray(o.hours) && o.hours.length === 7) D.hours = o.hours.map(h => ({ a1: h.a1, a2: h.a2, b1: h.b1, b2: h.b2 }));
-      logx('Team geladen: ' + D.team.map(m => m.name).join(', ')); store(true); admin('team'); } catch (e) { alert('Die Datei ist keine gültige Personalplanung.'); } };
+  rd.onload = () => { try { const o = JSON.parse(rd.result); if (!o.team) throw 0; applyPlan(o, o.savedAt || (o.vacSnap && o.vacSnap.at) || 0); admin('team'); } catch (e) { alert('Die Datei ist keine gültige Personalplanung.'); } };
   rd.readAsText(f);
+}
+async function odTeamFeed() { // SVNC_Team.json im App-Ordner (schreibt die FS-Zentrale); nur wenn neuer als der übernommene Stand
+  const t = await odAccess();
+  const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/SVNC_Team.json:/content', { headers: { Authorization: 'Bearer ' + t } });
+  if (!r.ok) return null;
+  const o = await r.json();
+  return o && o.kind === 'svnc-team' && Array.isArray(o.team) && (o.at || 0) > (D.planAt || 0) ? o : null;
 }
 function mergeObj(o) {
   if (!o || o.kind !== 'svnc-stempel') throw new Error('Keine gültige Stempeldatei');
@@ -996,6 +1006,7 @@ function mergeObj(o) {
   (o.dev || []).forEach(r => { const c = dvm.get(r.id); if (!c) { D.dev.push(r); n++; } else if ((r.rev || 1) > (c.rev || 1)) { Object.assign(c, r); n++; } });
   const td = o.teamData; // Team und Plan-Stand: die neuere Version gewinnt; ohne eigenes Team wird es übernommen
   if (td && Array.isArray(td.team) && td.team.length && (!D.team.length || (td.at || 0) > (D.teamAt || 0))) { D.team = td.team; if (td.cal) D.cal = td.cal; if (Array.isArray(td.hours)) D.hours = td.hours; D.snap = td.snap || D.snap || null; D.teamAt = td.at || 1; n++; }
+  if (td && (td.planAt || 0) > (D.planAt || 0)) D.planAt = td.planAt;
   if (o.vacAdj) { const b = JSON.stringify(D.vacAdj); D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj); if (JSON.stringify(D.vacAdj) !== b) n++; }
   const seen = new Set(D.log.map(l => l.ts + l.x)); (o.log || []).forEach(l => { if (!seen.has(l.ts + l.x)) D.log.push(l); }); D.log.sort((a, b) => a.ts - b.ts);
   if (D.log.length > 3000) D.log.splice(0, D.log.length - 3000);
