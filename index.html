@@ -392,13 +392,13 @@ const odOn = () => !!OD.cfg.cid;
 const odConnected = () => !!(OD.cfg.cid && OD.cfg.rt);
 const odNeedsLogin = () => odOn() && (!odConnected() || OD.needLogin);
 const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-async function odLogin() {
+async function odLogin(silent) {
   if (!OD.cfg.cid) return;
   if (!crypto.subtle) { alert('Die Anmeldung funktioniert nur über die https-Adresse der App, nicht aus einer lokalen Datei.'); return; }
   const ver = b64u(crypto.getRandomValues(new Uint8Array(32))), st = rnd(8);
   const ch = b64u(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ver)));
-  OD.cfg.pkce = { ver, st }; odSave();
-  location.href = OD_AUTH + 'authorize?' + new URLSearchParams({ client_id: OD.cfg.cid, response_type: 'code', redirect_uri: odRedirect(), response_mode: 'query', scope: OD_SCOPE, state: st, code_challenge: ch, code_challenge_method: 'S256' });
+  OD.cfg.pkce = { ver, st, silent: silent === true }; odSave();
+  location.href = OD_AUTH + 'authorize?' + new URLSearchParams({ client_id: OD.cfg.cid, response_type: 'code', redirect_uri: odRedirect(), response_mode: 'query', scope: OD_SCOPE, state: st, code_challenge: ch, code_challenge_method: 'S256', ...(silent === true ? { prompt: 'none', domain_hint: 'consumers' } : {}) });
 }
 async function odToken(params) {
   const r = await fetch(OD_AUTH + 'token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: OD.cfg.cid, scope: OD_SCOPE, ...params }) });
@@ -412,9 +412,11 @@ async function odReturn() {
   const q = new URLSearchParams(location.search); if (!q.has('code') && !q.has('error')) return;
   history.replaceState(null, '', odRedirect());
   const p = OD.cfg.pkce; delete OD.cfg.pkce; odSave();
-  if (q.get('error')) { OD.err = (q.get('error_description') || q.get('error')).split('+')[0]; return; }
+  if (q.get('error')) {
+    if (p && p.silent && /login_required|interaction_required|consent_required|account_selection_required|user_logged_out/.test(q.get('error'))) { try { localStorage.setItem('svnc_od_sfail', String(Date.now())); } catch (e) {} return; } // stille Anmeldung nicht möglich: Hinweis zum Antippen bleibt
+    OD.err = (q.get('error_description') || q.get('error')).split('+')[0]; return; }
   if (!p || p.st !== q.get('state')) { OD.err = 'Anmeldung ungültig – bitte erneut versuchen'; return; }
-  try { await odToken({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: odRedirect(), code_verifier: p.ver }); OD.err = ''; logx('OneDrive verbunden'); store(); }
+  try { await odToken({ grant_type: 'authorization_code', code: q.get('code'), redirect_uri: odRedirect(), code_verifier: p.ver }); OD.err = ''; try { localStorage.removeItem('svnc_od_sfail'); } catch (e) {} logx('OneDrive verbunden'); store(); }
   catch (e) { OD.err = e.message; }
 }
 async function odAccess() {
@@ -463,6 +465,7 @@ async function odSync() {
     }
   } catch (e) { OD.err = OD.needLogin ? '' : (e.name === 'TypeError' ? 'keine Verbindung' : (e.message || 'Fehler')); }
   OD.busy = false; refreshChrome();
+  if (OD.needLogin) odAuto(false);
   if (D.unsynced && !OD.err && !OD.needLogin) odQueue(8000);
 }
 // Hinweisbalken auf der Startseite, wenn die OneDrive-Anmeldung abgelaufen ist (ein Tipp genügt)
@@ -497,14 +500,19 @@ function odPanel() {
   return `<div class="row"><div><div class="t"><span class="dot ${s.cls}" style="margin-right:8px"></span>${esc(s.txt)}</div><div class="d">Datei: Apps › … › ${OD_FILE}${OD.err ? ' · ' + esc(OD.err) : ''}</div></div><button class="btn pri" onclick="odNow()">Jetzt abgleichen</button></div>
     <div class="row"><div class="small">Es werden immer alle Zeiten zusammengeführt – auch wenn iPad und Laptop gleichzeitig Änderungen haben.</div><div class="btns">${manual}<button class="btn danger" onclick="odSignOut()">Abmelden</button></div></div>`;
 }
+function odAuto(visible) { // stille Erneuerung der Anmeldung, nie bei offenem Fenster und nie öfter als alle 30 Min.; nach Fehlschlag 12 Std. Pause
+  if (location.protocol !== 'https:' || !odNeedsLogin() || /[?&](code|error)=/.test(location.search)) return;
+  const md = $('#modal'); if (md && md.innerHTML) return;
+  try { const now = Date.now(), last = +localStorage.getItem('svnc_od_auto') || 0, sf = +localStorage.getItem('svnc_od_sfail') || 0;
+    if (now - last < 1800000 || (!visible && now - sf < 43200000)) return;
+    localStorage.setItem('svnc_od_auto', String(now)); odLogin(!visible); } catch (e) {}
+}
 async function odInit() {
   await odReturn(); refreshChrome();
-  // Nur Handy: abgelaufene Anmeldung beim Öffnen automatisch erneuern (höchstens alle 30 Min., nie im Rücksprung von Microsoft)
-  if ((PHONE || OFFICE) && location.protocol === 'https:' && odNeedsLogin() && !/[?&](code|error)=/.test(location.search)) {
-    try { const k = 'svnc_od_auto', last = +localStorage.getItem(k) || 0; if (Date.now() - last > 1800000) { localStorage.setItem(k, String(Date.now())); odLogin(); } } catch (e) {}
-  }
+  // Abgelaufene Anmeldung beim Start automatisch erneuern: Handy und Mac sichtbar (Microsoft-Seite erscheint nur, wenn nötig), iPad still
+  odAuto(PHONE || OFFICE);
   if (odConnected()) odSync();
-  document.addEventListener('visibilitychange', () => { if (odConnected() && (document.visibilityState === 'visible' || D.unsynced)) odSync(); });
+  document.addEventListener('visibilitychange', () => { if (odConnected() && (document.visibilityState === 'visible' || D.unsynced)) odSync(); if (document.visibilityState === 'visible') odAuto(false); });
   window.addEventListener('online', () => { if (odConnected()) odSync(); });
   setInterval(() => { if (odConnected()) odSync(); }, 300000);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
