@@ -269,6 +269,32 @@ tr.sum td{font-weight:700;border-top:2px solid var(--line)}
 .mdec{margin-top:8px;padding:8px 12px;border-left:3px solid var(--coral);background:var(--card);border-radius:8px;font-size:14.5px;color:var(--ink)}
 .mack{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:14px}
 .mack .act{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:16px 18px;text-align:left}.mack .act:disabled{opacity:.6}
+
+/* Apple-Stil (iPadOS/macOS): Kapsel-Knöpfe, Systemfüllungen, Hover am Mac, Tipp-Rückmeldung */
+:root{--fill:rgba(120,120,128,.12);--fill2:rgba(120,120,128,.08);--sep:rgba(60,60,67,.14);--tint:var(--accent)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--fill:rgba(120,120,128,.26);--fill2:rgba(120,120,128,.18);--sep:rgba(84,84,88,.5)}}
+:root[data-theme=dark]{--fill:rgba(120,120,128,.26);--fill2:rgba(120,120,128,.18);--sep:rgba(84,84,88,.5)}
+.btn{border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;letter-spacing:-.01em;background:var(--fill);color:var(--tint);box-shadow:none;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.pri{background:var(--accent);color:var(--on-accent);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.btn.danger{background:rgba(255,59,48,.12);color:var(--bad)}
+.btn.back{width:40px;height:40px;padding:0;min-height:0}.btn.back svg{width:20px;height:20px}
+.act{border-radius:16px;letter-spacing:-.01em}.act.sec{background:var(--fill);box-shadow:none}
+button{transition:transform .16s cubic-bezier(.2,.9,.25,1),background-color .2s ease,opacity .15s ease,filter .15s ease}
+button:active{transform:scale(.97);opacity:.75}
+@media (hover:hover) and (pointer:fine){.btn:hover,.act:hover,.lapp:hover .lic,.tile:hover{filter:brightness(.96)}.btn.pri:hover{filter:brightness(1.15)}.row[onclick]:hover,.lapp:hover .ll{opacity:.85}}
+.seg{background:var(--fill);box-shadow:none;border-radius:10px;padding:2px}.seg button{border-radius:8px;padding:8px 14px;font-size:14px}
+.seg button.on{background:var(--card);box-shadow:0 3px 8px rgba(0,0,0,.12),0 3px 1px rgba(0,0,0,.04)}
+.group{background:var(--card);box-shadow:0 0 0 .5px var(--sep);border-radius:14px}.row{border-bottom:.5px solid var(--sep)}
+.box .group{background:var(--card2)}
+.kpi{background:var(--card);box-shadow:0 0 0 .5px var(--sep);border-radius:14px}.box .kpi{background:var(--card2)}
+input[type=time],input[type=text],input[type=date],select,.azb-ta{background:var(--fill);box-shadow:none;border-radius:10px}
+input[type=time]:focus,input[type=text]:focus,input[type=date]:focus,select:focus,.azb-ta:focus{outline:none;box-shadow:0 0 0 3px rgba(10,132,255,.35)}
+.chip{background:var(--fill);box-shadow:none}
+.gt{text-transform:none;letter-spacing:0;font-size:13px;font-weight:600}
+/* Mac-Startseite: App-Symbole */
+.lpanel{background:var(--card);border-radius:var(--r);padding:34px 30px;box-shadow:var(--shadow)}
+.lpanel .lgrid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:30px 12px}
+.lpanel .lic{width:76px;height:76px;border-radius:20px}.lpanel .lic svg{width:34px;height:34px}.lpanel .ll{font-size:13.5px}
 @media print{
   @page{size:A4;margin:14mm}
   body.pr>*:not(#psheet){display:none!important}
@@ -588,7 +614,8 @@ function home() {
   if (OFFICE && !D.admin) { D.admin = 'office'; store(); }
   if (!D.admin) { $('#app').innerHTML = `<div class="empty"><h2>Willkommen</h2><p>Zuerst eine Admin-PIN für die Salonleitung festlegen und das Team laden.</p><button class="act" style="display:inline-flex;margin-top:12px;padding:16px 28px" onclick="setupAdmin()">Einrichtung starten</button></div>`; refreshChrome(); return; }
   if (!D.team.length) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty"><h2>Kein Team geladen</h2>${OFFICE ? '<p>Zahnrad → Technik: Client-ID eintragen und bei OneDrive anmelden. Das Team kommt dann automatisch vom iPad.</p>' : '<p>Oben rechts über das Zahnrad → Team → „Team laden“ die Datei der Personalplanung wählen.</p>'}</div>`; refreshChrome(); return; }
-  if (PHONE || OFFICE) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub, Krank und Korrekturen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">${OFFICE ? 'Verwaltung öffnen' : 'Mit PIN öffnen'}</button></div>`; refreshChrome();  // Salonleitung öffnet sich nur über das Zahnrad bzw. „Verwaltung öffnen“ (kein automatisches Öffnen mehr)
+  if (OFFICE) { $('#app').innerHTML = `<div id="odslot"></div><div class="greet"><h1>Salonleitung</h1><span>${WDL[wdMon(today())]}, ${dfmt(today())}</span></div><div class="lpanel">${launchGrid()}</div>`; refreshChrome(); return; }
+  if (PHONE) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub, Krank und Korrekturen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">Mit PIN öffnen</button></div>`; refreshChrome();  // Salonleitung öffnet sich nur über das Zahnrad bzw. „Verwaltung öffnen“ (kein automatisches Öffnen mehr)
     return; }
   const t = today(), y = yesterday(), now = Date.now(), h = new Date().getHours();
   const tiles = D.team.map(m => {
@@ -733,7 +760,7 @@ function bioRow() {
   return `<div class="row"><div><div class="t">Fingerabdruck-Anmeldung</div><div class="d">${A.bioMsg ? esc(A.bioMsg) : D.bio ? 'Aktiv auf diesem Gerät. Die PIN funktioniert weiterhin.' : 'Salonleitung per Fingerabdruck oder Gerätesperre öffnen, statt PIN einzutippen.'}</div></div>${D.bio ? '<button class="btn danger" onclick="bioOff()">Ausschalten</button>' : '<button class="btn pri" onclick="bioOn()">Einrichten</button>'}</div>`;
 }
 function askAdmin() {
-  if (OFFICE) { D.admin = D.admin || 'office'; D.fails.admin = { n: 0 }; return launcher(); }
+  if (OFFICE) { D.admin = D.admin || 'office'; D.fails.admin = { n: 0 }; return home(); }
   if (!D.admin) return setupAdmin();
   const bio = !!(D.bio && BIO_OK);
   pinPad('Salonleitung', 'Admin-PIN eingeben', async v => { const lk = locked('admin'); if (lk) return `Zu viele Versuche. Bitte ${lk} Sek. warten.`;
@@ -746,7 +773,7 @@ function admin(tab) {
   const np = vacOpenN(), nd = devOpenN();
   const tabs = [['status', 'Heute'], ['vac', 'Abwesenheit' + (np ? `<span class="cnt">${np}</span>` : '')], ['dev', 'Abweichungen' + (nd ? `<span class="cnt">${nd}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['azb', 'Ausbildung'], ['team', 'Team'], ['log', 'Protokoll']].filter(t => !(PHONE && t[0] === 'team' && D.team.length));
   const body = { status: aStatus, vac: aVac, sick: aSick, dev: aDev, fix: aFix, month: aMonth, azb: aAzb, meet: aMeet, team: aTeam, log: aLog, set: aSet }[A.tab]();
-  modal(`<div class="ahead"><div class="ahl"><button class="btn" onclick="launcher()" aria-label="Zurück zum Menü">‹</button><span class="pav sm">S</span><h3>${APP_T[A.tab] || 'Salonleitung'}</h3></div><button class="btn" onclick="home()">Fertig</button></div>${absSw()}${body}`, true);
+  modal(`<div class="ahead"><div class="ahl"><button class="btn back" onclick="${OFFICE ? 'home()' : 'launcher()'}" aria-label="Zurück zum Menü"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><span class="pav sm">S</span><h3>${APP_T[A.tab] || 'Salonleitung'}</h3></div><button class="btn" onclick="home()">Fertig</button></div>${absSw()}${body}`, true);
   idle(240); refreshChrome();
 }
 function syncHtml() {
@@ -1027,11 +1054,13 @@ function appBadge(k) {
   if (k === 'status') return issues().length; if (k === 'vac') return vacOpenN(); if (k === 'dev') return devOpenN();
   if (k === 'meet') return meetOpenAcks(); if (k === 'set') return syncLine().cls === 'bad' ? 1 : 0; return 0;
 }
+function launchGrid() {
+  const apps = APPS.filter(([k]) => !(PHONE && k === 'team' && D.team.length));
+  return `<div class="lgrid">${apps.map(([k, l]) => { const n = appBadge(k); return `<button class="lapp" onclick="admin('${k}')"><span class="lic a-${k}">${appIc(k)}${n ? `<span class="lbad">${n}</span>` : ''}</span><span class="ll">${l}</span></button>`; }).join('')}</div>`;
+}
 function launcher() {
   window.ADM_OPEN = false;
-  const apps = APPS.filter(([k]) => !(PHONE && k === 'team' && D.team.length));
-  modal(`<div class="lhead"><span class="pav big">S</span><div><div class="lname">Sevinc</div><div class="small">Salonleitung · ${WDL[wdMon(today())]}, ${dfmt(today())}</div></div><button class="btn" onclick="home()">Fertig</button></div>
-    <div class="lgrid">${apps.map(([k, l]) => { const n = appBadge(k); return `<button class="lapp" onclick="admin('${k}')"><span class="lic a-${k}">${appIc(k)}${n ? `<span class="lbad">${n}</span>` : ''}</span><span class="ll">${l}</span></button>`; }).join('')}</div>`, true);
+  modal(`<div class="lhead"><span class="pav big">S</span><div><div class="lname">Sevinc</div><div class="small">Salonleitung · ${WDL[wdMon(today())]}, ${dfmt(today())}</div></div><button class="btn" onclick="home()">Fertig</button></div>${launchGrid()}`, true);
   const bx = $('#modal .box'); if (bx) bx.classList.add('glass');
   idle(240); refreshChrome();
 }
