@@ -215,6 +215,7 @@ tr.sum td{font-weight:700;border-top:2px solid var(--line)}
 #psheet{display:none}
 
 /* Ausbildung (Salonleitung) */
+.azb-st{display:flex;align-items:center;gap:10px;flex:none}.azb-now{background:var(--coral)!important;color:#fff;font-size:11.5px;padding:3px 9px;vertical-align:2px;margin-left:6px}
 .azb-tip{font-size:14px;color:var(--text);line-height:1.45;padding:0 0 12px;border-bottom:1px solid var(--line)}
 .azb-tip summary{cursor:pointer;color:var(--muted);font-size:13px;padding:2px 0 6px}
 .azb-tip div{padding:3px 0 3px 12px;border-left:3px solid var(--coral);margin:4px 0}
@@ -926,23 +927,24 @@ function azbW(k, v, quiet) { const z = azbD(), w = A.azw; z.weeks[w] = z.weeks[w
 function azbTog(ds, i) { const a = azbD().clean[ds] = azbD().clean[ds] || []; const j = a.indexOf(i); if (j >= 0) a.splice(j, 1); else a.push(i); azbSave(); }
 function azbBeg(i) { azbD().begleit[i] = !azbD().begleit[i]; azbSave(); }
 const azbSeg = (cur, n, fn) => `<div class="seg azb-seg">${n.map((l, k) => `<button class="${k === cur ? 'on' : ''}" onclick="${fn(k)}">${l}</button>`).join('')}</div>`;
+const azbStSeg = (id, i) => { const v = azbS(id, i); return `<div class="azb-st">${v ? '' : '<span class="small">noch nicht eingestuft</span>'}<div class="seg azb-seg">${[1, 2, 3].map(k => `<button class="${k === v ? 'on' : ''}" onclick="azbSet('${id}',${i},${k === v ? 0 : k})">${AZB_ST[k]}</button>`).join('')}</div></div>`; };
 const azbBar = pct => `<div class="azb-bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>`;
 const azbDs = ds => WDS[wdMon(ds)] + ', ' + dfmt(ds);
 function aAzb() {
   if (!A.azw) A.azw = azbCur(); if (!A.azd) A.azd = today();
   const z = azbD(), w = A.azw, cur = azbCur(), p = azbPlan(w), ist = azbPct(), soll = azbSoll(), rs = azbBehind(), W = z.weeks[w] || {}, name = esc(azbWho());
   const days = azbWeekDays(w), wd = azbWorkday(A.azd), done = z.clean[A.azd] || [];
-  const goals = p.tasks.map((t, i) => `<div class="row azb-row${i === p.i ? ' now' : ''}"><div class="t azb-t">${esc(t)}</div>${azbSeg(azbS(p.id, i), AZB_ST, k => `azbSet('${p.id}',${i},${k})`)}</div>${azbTip(p.id, i, i === p.i)}`).join('');
+  const goals = p.tasks.map((t, i) => `<div class="row azb-row${i === p.i ? ' now' : ''}"><div class="t azb-t">${esc(t)}${i === p.i ? ' <span class="chip azb-now">Diese Woche</span>' : ''}</div>${azbStSeg(p.id, i)}</div>${azbTip(p.id, i)}`).join('');
   const plan = days.map(d => `<div class="azb-day${d.ds === today() ? ' today' : ''}"><div class="t">${azbDs(d.ds)}${d.school ? ' <span class="chip">Berufsschule</span>' : ''}</div>${azbSlots(d, p).map(([t, x, c]) => `<div class="azb-slot ${c || ''}"><span>${t}</span><span>${esc(x)}</span></div>`).join('')}</div>`).join('');
   const stars = [['lernen', 'Lernfortschritt'], ['motivation', 'Motivation & Mitdenken'], ['ordnung', 'Ordnung & Sauberkeit']].map(([k, l]) => `<div class="row"><div class="t">${l}</div>${azbSeg((W[k] || 0) - 1, ['1', '2', '3', '4', '5'], i => `azbW('${k}',${i + 1})`)}</div>`).join('');
   const cd = days.filter(d => !d.school), cdn = cd.filter(d => (z.clean[d.ds] || []).length >= AZB_ORDNUNG.length).length;
   const checks = !wd ? `<div class="row"><div class="small">${azbWeekDays(azbWeek(A.azd)).some(d => d.ds === A.azd) ? 'Berufsschule, keine Checkliste.' : 'Salon geschlossen.'}</div></div>`
     : AZB_ORDNUNG.map((t, i) => `<label class="row azb-chk${done.includes(i) ? ' done' : ''}"><input type="checkbox" ${done.includes(i) ? 'checked' : ''} onchange="azbTog('${A.azd}',${i})"><span>${esc(t)}</span></label>`).join('');
-  const behind = rs.slice(0, 8).map(x => `<div class="row azb-row"><div class="t azb-t"><span class="chip">${x.id}</span> ${esc(x.task)}</div>${azbSeg(azbS(x.id, x.i), AZB_ST, k => `azbSet('${x.id}',${x.i},${k})`)}</div>${azbTip(x.id, x.i)}`).join('');
+  const behind = rs.slice(0, 8).map(x => `<div class="row azb-row"><div class="t azb-t"><span class="chip">${x.id}</span> ${esc(x.task)}</div>${azbStSeg(x.id, x.i)}</div>${azbTip(x.id, x.i)}`).join('');
   let acc = 0;
   const table = AZB_TOPICS.map(([id, nm, tasks]) => { const a = acc + 1, b = acc + tasks.length; acc = b; const pc = Math.round(tasks.reduce((s, _, i) => s + azbS(id, i), 0) / (tasks.length * 3) * 100);
     return `<details class="azb-top${cur >= a && cur <= b ? ' now' : ''}"><summary><span class="chip">${id}</span><span class="azb-nm">${esc(nm)}</span><span class="small">W${a}–${b}</span><span class="azb-pc">${azbBar(pc)}<span class="small">${pc} %</span></span></summary>
-      ${tasks.map((t, i) => `<div class="row azb-row"><div class="t azb-t"><span class="small">W${a + i}</span> ${esc(t)}</div>${azbSeg(azbS(id, i), AZB_ST, k => `azbSet('${id}',${i},${k})`)}</div>${azbTip(id, i)}`).join('')}</details>`; }).join('');
+      ${tasks.map((t, i) => `<div class="row azb-row"><div class="t azb-t"><span class="small">W${a + i}</span> ${esc(t)}</div>${azbStSeg(id, i)}</div>${azbTip(id, i)}`).join('')}</details>`; }).join('');
   const last = z.weeks[w - 1];
   return `<div class="ahead" style="margin:20px 0 4px"><div class="mnav"><button class="btn" onclick="A.azw=Math.max(1,A.azw-1);admin()">‹</button><b>Woche ${w}</b><span class="small">${dfmt(addDay(azbMon(w), 1))} – ${dfmt(addDay(azbMon(w), 5))}</span><button class="btn" onclick="A.azw++;admin()">›</button>${w !== cur ? `<button class="btn" onclick="A.azw=azbCur();admin()">Diese Woche</button>` : ''}</div>
     <div class="btns" style="margin:0"><button class="btn pri" onclick="azbSend('stand')">Fortschritt an ${name}</button><button class="btn" onclick="azbSend('plan')">Arbeitsplan &amp; Checkliste</button></div></div>
