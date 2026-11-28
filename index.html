@@ -302,6 +302,9 @@ input[type=time]:focus,input[type=text]:focus,input[type=date]:focus,select:focu
 .mper{display:flex;align-items:center;gap:12px;border:0;border-radius:16px;padding:14px 16px;background:var(--fill);color:var(--ink);font-size:17px;font-weight:600;text-align:left}
 .mper .av{width:40px;height:40px;font-size:17px}.mper .mtick{margin-left:auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--sep);font-size:15px}
 .mper.on{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--coral)}.mper.on .mtick{background:var(--coral);color:#fff;box-shadow:none}
+.mask{display:flex;gap:12px;align-items:flex-start;margin:4px 0 12px;cursor:pointer}.mask input{width:22px;height:22px;flex:none;accent-color:var(--coral);margin-top:2px}.mask b{color:var(--ink);font-size:15px}
+.msug{margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--accent-soft)}.msug-h{font-size:12.5px;font-weight:600;color:var(--coral);margin-bottom:4px}.msug-t{font-size:15.5px;color:var(--ink);line-height:1.4;margin-bottom:8px}
+.msug.wait{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--muted);background:var(--fill)}.btn.sm-ask{margin-top:8px;min-height:32px;padding:6px 14px;font-size:13px}
 .mreq.done b{text-decoration:line-through;color:var(--muted)}
 .msug{margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--accent-soft)}.msug-h{font-size:12.5px;font-weight:600;color:var(--coral);margin-bottom:4px}.msug-t{font-size:15.5px;color:var(--ink);line-height:1.4;margin-bottom:8px}
 .mcard{background:var(--card2);border-radius:20px;padding:24px;box-shadow:0 0 0 .5px var(--sep)}
@@ -539,6 +542,7 @@ async function odSync() {
     for (let tries = 0; tries < 4; tries++) {
       let etag = null, pulled = 0;
       if (tries === 0) { try { const tf = await odTeamFeed(); if (tf) { applyPlan(tf, tf.at); feed = true; } } catch (e) { /* Feed ist optional */ } }
+      if (tries === 0) { try { if (await odNoteFeed()) feed = true; } catch (e) { /* Vorschläge sind optional */ } }
       const mr = await odGraph('');
       if (mr.status === 200) {
         etag = (await mr.json()).eTag;
@@ -1120,11 +1124,25 @@ function reqRow(m, r, edit) {
     <span class="small" style="display:block">von ${r.from == null ? 'Team' : esc(pName(r.from))} · ${REQ_K[r.kind] || ''} · ${tsTxt(r.ts)}${r.done ? ' · erledigt ' + dfmt(dkey(r.done)) : ''}</span></span></label>
     ${edit ? `<textarea class="azb-ta" rows="1" placeholder="Was hat Sevinc entschieden oder umgesetzt? (optional)" oninput="reqSet('${m.id}','${r.id}','note',this.value,1)">${esc(r.note || '')}</textarea><div class="btns"><button class="btn danger" onclick="reqDel('${m.id}','${r.id}')">Löschen</button></div>` : r.note ? `<div class="mdec">${esc(r.note)}</div>` : ''}</div>`;
 }
+// Ausformulieren lassen (nur auf Wunsch): die FS-Zentrale formuliert die Stichpunkte, der Vorschlag kommt beim Abgleich zurück
+const mSug = n => { const x = (D.msug || {})[n.id]; return n.ask && x && !x.same && x.src === n.text && n.sugNo !== x.txt ? x : null; };
+function sugHtml(n) {
+  const x = mSug(n);
+  if (x) return `<div class="msug"><div class="msug-h">Vorschlag zur Formulierung</div><div class="msug-t">${esc(x.txt)}</div><div class="btns"><button class="btn pri" onclick="event.stopPropagation();meetSugOk('${n.id}')">Übernehmen</button><button class="btn" onclick="event.stopPropagation();meetSugNo('${n.id}')">Stichpunkte behalten</button></div></div>`;
+  const y = (D.msug || {})[n.id];
+  if (n.ask && !(y && y.src === n.text)) return `<div class="msug wait"><span>Wird ausformuliert, meist innerhalb von 1–2 Tagen.</span><button class="btn" onclick="event.stopPropagation();meetAsk('${n.id}',false)">Abbrechen</button></div>`;
+  if (!n.ask && !n.orig) return `<button class="btn sm-ask" onclick="event.stopPropagation();meetAsk('${n.id}',true)">Ausformulieren lassen</button>`;
+  return '';
+}
+function meetAsk(id, on) { const n = meetD().notes.find(x => x.id === id); if (!n) return; n.ask = on; mBump(n); store(true); admin('meet'); }
+function meetSugOk(id) { const n = meetD().notes.find(x => x.id === id), x = n && mSug(n); if (!x) return; n.orig = n.orig || n.text; n.text = x.txt; n.ask = false; mBump(n); logx('Besprechung: Formulierungsvorschlag übernommen'); store(true); admin('meet'); }
+function meetSugNo(id) { const n = meetD().notes.find(x => x.id === id), x = n && mSug(n); if (!x) return; n.sugNo = x.txt; n.ask = false; mBump(n); store(true); admin('meet'); }
+function meetAskInfo() { A.mask = !A.mask; const v = $('#mnew') ? $('#mnew').value : ''; admin('meet'); if ($('#mnew')) $('#mnew').value = v; }
 // Notizen
 function meetAdd() {
   const t = ($('#mnew').value || '').trim(); if (!t) return;
-  meetD().notes.push({ id: rnd(8), ts: Date.now(), text: t, who: (A.mw || []).slice(), mid: null, rev: 1 });
-  A.mw = []; logx('Besprechung: Notiz hinzugefügt'); store(true); admin('meet');
+  meetD().notes.push({ id: rnd(8), ts: Date.now(), text: t, who: (A.mw || []).slice(), mid: null, ask: !!A.mask, rev: 1 });
+  A.mw = []; A.mask = false; logx('Besprechung: Notiz hinzugefügt'); store(true); admin('meet');
 }
 function meetWho(p) { A.mw = A.mw || []; const i = A.mw.indexOf(p); if (p === -1) A.mw = []; else if (i >= 0) A.mw.splice(i, 1); else A.mw.push(p); const v = $('#mnew') ? $('#mnew').value : ''; admin('meet'); if ($('#mnew')) $('#mnew').value = v; }
 function meetDel(id) { const n = meetD().notes.find(x => x.id === id); if (!n || !confirm('Notiz löschen?')) return; n.del = true; mBump(n); store(true); admin('meet'); }
@@ -1187,10 +1205,11 @@ function aMeet() {
   const w = A.mw || [];
   return `<div class="gt">Neue Notiz</div><div class="group"><div class="row" style="display:block"><textarea id="mnew" class="azb-ta" rows="2" placeholder="Thema für die nächste Teambesprechung"></textarea>
      <div class="mwho"><span class="small">Betrifft:</span><button class="chip ${w.length ? '' : 'on'}" onclick="meetWho(-1)">Alle</button>${D.team.map(t => `<button class="chip ${w.includes(t.p) ? 'on' : ''}" onclick="meetWho(${t.p})">${esc(t.name)}</button>`).join('')}</div>
+     <label class="mask"><input type="checkbox" ${A.mask ? 'checked' : ''} onchange="meetAskInfo()"><span><b>Ausformulieren lassen</b><span class="small" style="display:block">Stichpunkte reichen. Die FS-Zentrale formuliert die Notiz als kurzen, klaren Text. Das dauert meist 1–2 Tage. Danach erscheint der Vorschlag hier zum Übernehmen. Die Notiz wird dafür zur Bearbeitung an Claude (Anthropic) übermittelt.</span></span></label>
      <div class="btns"><button class="btn pri" onclick="meetAdd()">Notiz speichern</button></div></div></div>
    ${reqOpen().length ? `<div class="gt">Offene Anliegen für Sevinc (${reqOpen().length})</div><div class="group">${reqOpen().map(({ m, r }) => reqRow(m, r, false)).join('')}</div>` : ''}
    <div class="ahead" style="margin:22px 4px 0"><div class="gt" style="margin:0">Tagesordnung für die nächste Besprechung (${open.length})</div>${open.length ? `<button class="btn pri" onclick="meetStart()">Besprechung starten</button>` : ''}</div>
-   <div class="group">${open.map(n => `<div class="row"><div style="flex:1;min-width:0"><div class="t">${esc(n.text)}</div><div class="d">${tsTxt(n.ts)} · betrifft: ${esc(whoTxt(n.who))}</div></div><button class="btn danger" onclick="meetDel('${n.id}')">Löschen</button></div>`).join('') || '<div class="row"><div class="small">Noch keine Themen gesammelt. Alles, was im Alltag auffällt, hier notieren. Bei der nächsten Teambesprechung ist dann alles beisammen.</div></div>'}</div>
+   <div class="group">${open.map(n => `<div class="row"><div style="flex:1;min-width:0"><div class="t">${esc(n.text)}</div><div class="d">${tsTxt(n.ts)} · betrifft: ${esc(whoTxt(n.who))}${n.orig ? ' · Stichpunkte: ' + esc(n.orig) : ''}</div>${sugHtml(n)}</div><button class="btn danger" onclick="meetDel('${n.id}')">Löschen</button></div>`).join('') || '<div class="row"><div class="small">Noch keine Themen gesammelt. Alles, was im Alltag auffällt, hier notieren. Bei der nächsten Teambesprechung ist dann alles beisammen.</div></div>'}</div>
    ${all.length ? `<div class="gt">Vergangene Besprechungen</div><div class="group">${all.map(m => { const n = meetItems(m).length, a = mSigned(m).length, t = mAtt(m).length;
      return `<div class="row" style="cursor:pointer" onclick="A.mv='${m.id}';A.mi=0;admin('meet')"><div><div class="t">${tsTxt(m.ts)}</div><div class="d">${n} Themen · ${t} anwesend · ${m.closed ? a + ' von ' + t + ' unterschrieben' : 'läuft noch'}</div></div><span class="chip ${m.closed && a >= t ? 'in' : 'ps'}">${m.closed ? (a >= t ? 'Vollständig' : 'Unterschrift fehlt') : 'Fortsetzen'}</span></div>`; }).join('')}</div>` : ''}`;
 }
@@ -1451,6 +1470,14 @@ async function odTeamFeed() { // SVNC_Team.json im App-Ordner (schreibt die FS-Z
   if (!r.ok) return null;
   const o = await r.json();
   return o && o.kind === 'svnc-team' && Array.isArray(o.team) && (o.at || 0) > (D.planAt || 0) ? o : null;
+}
+async function odNoteFeed() { // SVNC_Notizvorschlaege.json: Formulierungen der FS-Zentrale für Notizen, bei denen Sevinc „Ausformulieren lassen“ gewählt hat
+  const t = await odAccess();
+  const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/SVNC_Notizvorschlaege.json:/content', { headers: { Authorization: 'Bearer ' + t } });
+  if (!r.ok) return false;
+  const o = await r.json();
+  if (!(o && o.kind === 'svnc-notes' && (o.at || 0) > (D.msugAt || 0))) return false;
+  D.msug = o.s || {}; D.msugAt = o.at; store(); return true;
 }
 function mergeObj(o) {
   if (!o || o.kind !== 'svnc-stempel') throw new Error('Keine gültige Stempeldatei');
