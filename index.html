@@ -296,6 +296,17 @@ input[type=time]:focus,input[type=text]:focus,input[type=date]:focus,select:focu
 .lpanel{background:var(--card);border-radius:var(--r);padding:34px 30px;box-shadow:var(--shadow)}
 .lpanel .lgrid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:30px 12px}
 .lpanel .lic{width:76px;height:76px;border-radius:20px}.lpanel .lic svg{width:34px;height:34px}.lpanel .ll{font-size:13.5px}
+
+.mstep{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--muted);margin:16px 2px 12px}.mstep span{width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-size:13px}
+.mpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.mper{display:flex;align-items:center;gap:12px;border:0;border-radius:16px;padding:14px 16px;background:var(--fill);color:var(--ink);font-size:17px;font-weight:600;text-align:left}
+.mper .av{width:40px;height:40px;font-size:17px}.mper .mtick{margin-left:auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--sep);font-size:15px}
+.mper.on{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--coral)}.mper.on .mtick{background:var(--coral);color:#fff;box-shadow:none}
+.mcard{background:var(--card2);border-radius:20px;padding:24px;box-shadow:0 0 0 .5px var(--sep)}
+.mnum{font-size:13px;font-weight:600;color:var(--coral);margin-bottom:8px}.mtxt{font-size:24px;font-weight:700;color:var(--ink);letter-spacing:-.015em;line-height:1.25;margin-bottom:6px}
+.mnav2{justify-content:space-between;margin-top:6px}
+.magenda{cursor:pointer}.magenda.cur{background:var(--accent-soft);margin:0 -18px;padding-left:18px;padding-right:18px}
+.mno{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--fill);color:var(--muted);flex:none}.mno.ok{background:var(--ok-dot);color:#fff}
 @media print{
   @page{size:A4;margin:14mm}
   body.pr>*:not(#psheet){display:none!important}
@@ -1070,14 +1081,20 @@ function aSet() {
   return `<div class="group" style="margin-top:18px">${syncHtml()}${themeRow()}${bioRow()}</div>`;
 }
 
-/* ---------- Besprechung: Notizen mit Zeitstempel, Teambesprechung, Bestätigung per PIN ---------- */
+/* ---------- Besprechung: Notizen sammeln → Teilnehmer wählen → Moderation → Beenden → Unterschrift per PIN ---------- */
 function meetD() { if (!D.meet) D.meet = { notes: [], meets: [] }; D.meet.notes = D.meet.notes || []; D.meet.meets = D.meet.meets || []; return D.meet; }
 const mNotes = () => meetD().notes.filter(n => !n.del);
 const mMeets = () => meetD().meets.filter(m => !m.del).sort((a, b) => b.ts - a.ts);
 const tsTxt = ts => dfmt(dkey(ts)) + ', ' + hm(ts) + ' Uhr';
-const whoTxt = w => !w || !w.length ? 'Alle' : w.map(p => (D.team.find(m => m.p === p) || {}).name || '?').join(', ');
+const pName = p => (D.team.find(m => m.p === p) || {}).name || '?';
+const whoTxt = w => !w || !w.length ? 'Alle' : w.map(pName).join(', ');
 const mBump = o => { o.rev = (o.rev || 1) + 1; o.at = Date.now(); };
-function meetOpenAcks() { return mMeets().filter(m => m.closed).reduce((s, m) => s + D.team.filter(t => !(m.acks || {})[t.p]).length, 0); }
+const mAtt = m => Array.isArray(m.att) ? m.att : D.team.map(t => t.p);          // ältere Besprechungen: ganzes Team
+const mSigned = m => mAtt(m).filter(p => (m.acks || {})[p]);
+function meetOpenAcks() { return mMeets().filter(m => m.closed).reduce((s, m) => s + mAtt(m).length - mSigned(m).length, 0); }
+const meetById = id => meetD().meets.find(x => x.id === id);
+function meetItems(m) { return (m.items || []).map(id => meetD().notes.find(n => n.id === id)).filter(n => n && !n.del); }
+// Notizen
 function meetAdd() {
   const t = ($('#mnew').value || '').trim(); if (!t) return;
   meetD().notes.push({ id: rnd(8), ts: Date.now(), text: t, who: (A.mw || []).slice(), mid: null, rev: 1 });
@@ -1085,78 +1102,103 @@ function meetAdd() {
 }
 function meetWho(p) { A.mw = A.mw || []; const i = A.mw.indexOf(p); if (p === -1) A.mw = []; else if (i >= 0) A.mw.splice(i, 1); else A.mw.push(p); const v = $('#mnew') ? $('#mnew').value : ''; admin('meet'); if ($('#mnew')) $('#mnew').value = v; }
 function meetDel(id) { const n = meetD().notes.find(x => x.id === id); if (!n || !confirm('Notiz löschen?')) return; n.del = true; mBump(n); store(true); admin('meet'); }
+// 1) Teilnehmer wählen (vorausgewählt: wer heute gestempelt hat, sonst alle)
 function meetStart() {
-  const open = mNotes().filter(n => !n.mid); if (!open.length) return;
-  const m = { id: rnd(8), ts: Date.now(), items: open.map(n => n.id), done: {}, dec: {}, acks: {}, closed: 0, rev: 1 };
-  meetD().meets.push(m); open.forEach(n => { n.mid = m.id; mBump(n); });
-  A.mv = m.id; logx('Teambesprechung gestartet (' + open.length + ' Themen)'); store(true); admin('meet');
+  const t = today(), here = D.team.filter(m => daySum(m.p, t, Date.now()).n).map(m => m.p);
+  A.matt = here.length ? here : D.team.map(m => m.p); A.mstep = 'att'; admin('meet');
 }
-function meetDone(mid, nid) { const m = meetD().meets.find(x => x.id === mid); if (!m) return; m.done[nid] = !m.done[nid]; mBump(m); store(true); admin('meet'); }
-function meetDec(mid, nid, v) { const m = meetD().meets.find(x => x.id === mid); if (!m) return; m.dec[nid] = v; mBump(m); store(true); }
-function meetClose(mid) { const m = meetD().meets.find(x => x.id === mid); if (!m) return; m.closed = Date.now(); mBump(m); logx('Teambesprechung abgeschlossen'); store(true); admin('meet'); }
-function meetBack(mid) { // Themen einer noch offenen Besprechung zurück in die Sammlung
-  const m = meetD().meets.find(x => x.id === mid); if (!m || m.closed || !confirm('Besprechung abbrechen? Die Themen bleiben gesammelt.')) return;
+function meetAttTog(p) { const i = A.matt.indexOf(p); if (i >= 0) A.matt.splice(i, 1); else A.matt.push(p); admin('meet'); }
+// 2) Besprechung beginnt
+function meetBegin() {
+  const open = mNotes().filter(n => !n.mid); if (!open.length || !A.matt.length) return;
+  const m = { id: rnd(8), ts: Date.now(), att: A.matt.slice(), items: open.map(n => n.id), done: {}, dec: {}, acks: {}, closed: 0, rev: 1 };
+  meetD().meets.push(m); open.forEach(n => { n.mid = m.id; mBump(n); });
+  A.mv = m.id; A.mi = 0; A.mstep = null; logx(`Teambesprechung gestartet: ${open.length} Themen, anwesend ${whoTxt(m.att)}`); store(true); admin('meet');
+}
+function meetGo(k) { const m = meetById(A.mv); if (!m) return; const it = meetItems(m); if (k > A.mi && it[A.mi] && !m.done[it[A.mi].id]) { m.done[it[A.mi].id] = true; mBump(m); store(true); } A.mi = Math.max(0, Math.min(it.length - 1, k)); admin('meet'); }
+function meetDone(mid, nid) { const m = meetById(mid); if (!m) return; m.done[nid] = !m.done[nid]; mBump(m); store(true); admin('meet'); }
+function meetDec(mid, nid, v) { const m = meetById(mid); if (!m) return; m.dec[nid] = v; mBump(m); store(true); }
+// 3) Beenden → 4) Unterschriften der Anwesenden
+function meetClose(mid) {
+  const m = meetById(mid); if (!m) return; const it = meetItems(m), cur = it[A.mi];
+  if (cur && !m.done[cur.id]) m.done[cur.id] = true;
+  const open = it.filter(n => !m.done[n.id]).length;
+  if (open && !confirm(open + (open === 1 ? ' Thema wurde' : ' Themen wurden') + ' nicht besprochen. Trotzdem beenden?')) return;
+  m.closed = Date.now(); mBump(m); logx('Teambesprechung beendet, Unterschriften angefordert'); store(true); ackRound(mid);
+}
+function meetBack(mid) {
+  const m = meetById(mid); if (!m || m.closed || !confirm('Besprechung abbrechen? Die Themen bleiben gesammelt.')) return;
   m.del = true; mBump(m); mNotes().filter(n => n.mid === mid).forEach(n => { n.mid = null; mBump(n); }); A.mv = null; store(true); admin('meet');
 }
-function meetItems(m) { return (m.items || []).map(id => meetD().notes.find(n => n.id === id)).filter(n => n && !n.del); }
 function aMeet() {
-  const all = mMeets(), cur = all.find(m => m.id === A.mv);
-  if (cur && !cur.closed) { // laufende Besprechung
-    const it = meetItems(cur);
-    return `<div class="note info" style="margin-top:14px">Teambesprechung seit ${hm(cur.ts)} Uhr · ${it.filter(n => cur.done[n.id]).length} von ${it.length} Themen besprochen</div>
-     <div class="group">${it.map(n => `<div class="row" style="display:block"><label class="mchk"><input type="checkbox" ${cur.done[n.id] ? 'checked' : ''} onchange="meetDone('${cur.id}','${n.id}')"><span><b>${esc(n.text)}</b><span class="small" style="display:block">${tsTxt(n.ts)} · betrifft: ${esc(whoTxt(n.who))}</span></span></label>
-       <textarea class="azb-ta" rows="2" placeholder="Vereinbarung (optional)" oninput="meetDec('${cur.id}','${n.id}',this.value)">${esc(cur.dec[n.id] || '')}</textarea></div>`).join('')}</div>
-     <div class="btns"><button class="btn pri" onclick="meetClose('${cur.id}')">Besprechung abschließen</button><button class="btn" onclick="A.mv=null;admin('meet')">Später weiter</button><button class="btn danger" onclick="meetBack('${cur.id}')">Abbrechen</button></div>`;
+  const all = mMeets(), cur = all.find(m => m.id === A.mv), open = mNotes().filter(n => !n.mid).sort((a, b) => a.ts - b.ts);
+  if (A.mstep === 'att') { // Schritt 1: Wer ist dabei?
+    return `<div class="mstep"><span>1</span>Wer ist bei der Besprechung dabei?</div>
+     <div class="mpick">${D.team.map(t => `<button class="mper ${A.matt.includes(t.p) ? 'on' : ''}" onclick="meetAttTog(${t.p})"><span class="av">${esc(t.name.slice(0, 1))}</span><span>${esc(t.name)}</span><span class="mtick">${A.matt.includes(t.p) ? '✓' : ''}</span></button>`).join('')}</div>
+     <p class="small">Vorausgewählt ist, wer heute gestempelt hat. Nur die Anwesenden unterschreiben am Ende. ${open.length} ${open.length === 1 ? 'Thema steht' : 'Themen stehen'} auf der Tagesordnung.</p>
+     <div class="btns" style="margin-top:14px"><button class="btn pri" ${A.matt.length ? '' : 'disabled'} onclick="meetBegin()">Besprechung beginnen</button><button class="btn" onclick="A.mstep=null;admin('meet')">Abbrechen</button></div>`;
   }
-  if (cur && cur.closed) { // abgeschlossene Besprechung: Ergebnis und Bestätigungen
-    const it = meetItems(cur), ok = D.team.filter(t => (cur.acks || {})[t.p]);
-    return `<div class="ahead" style="margin:16px 0 4px"><button class="btn" onclick="A.mv=null;admin('meet')">‹ Alle Besprechungen</button><div class="btns" style="margin:0"><button class="btn pri" onclick="ackRound('${cur.id}')">Bestätigungsrunde</button><button class="btn" onclick="meetPdf('${cur.id}')">Protokoll (PDF)</button></div></div>
-     <div class="gt">Teambesprechung ${tsTxt(cur.ts)}</div><div class="group">${it.map(n => `<div class="row" style="display:block"><div class="t">${esc(n.text)}</div><div class="d">${cur.done[n.id] ? 'besprochen' : 'nicht besprochen'} · betrifft: ${esc(whoTxt(n.who))}</div>${cur.dec[n.id] ? `<div class="mdec">${esc(cur.dec[n.id])}</div>` : ''}</div>`).join('')}</div>
-     <div class="gt">Zur Kenntnis genommen (${ok.length} von ${D.team.length})</div><div class="group">${D.team.map(t => { const a = (cur.acks || {})[t.p];
-       return `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ${a ? 'ok' : 'warn'}"></span><div class="t">${esc(t.name)}</div></div><div class="d" style="margin:0">${a ? 'bestätigt ' + tsTxt(a) : 'noch offen'}</div></div>`; }).join('')}</div>
-     <p class="small">Bestätigungsrunde: Das iPad an das Team geben. Jede Person bestätigt mit ihrer Stempel-PIN. Die Salonleitung ist dabei gesperrt.</p>`;
+  if (cur && !cur.closed) { // Schritt 2: Moderation
+    const it = meetItems(cur); A.mi = Math.min(A.mi || 0, Math.max(0, it.length - 1)); const n = it[A.mi], nd = it.filter(x => cur.done[x.id]).length;
+    return `<div class="mstep"><span>2</span>Teambesprechung seit ${hm(cur.ts)} Uhr · anwesend: ${esc(whoTxt(mAtt(cur)))}</div>
+     ${n ? `<div class="mcard"><div class="mnum">Punkt ${A.mi + 1} von ${it.length}${cur.done[n.id] ? ' · besprochen' : ''}</div><div class="mtxt">${esc(n.text)}</div><div class="small">betrifft: ${esc(whoTxt(n.who))} · notiert ${tsTxt(n.ts)}</div>
+       <textarea class="azb-ta" rows="2" placeholder="Vereinbarung zu diesem Punkt (optional)" oninput="meetDec('${cur.id}','${n.id}',this.value)">${esc(cur.dec[n.id] || '')}</textarea>
+       <div class="btns mnav2"><button class="btn" ${A.mi ? '' : 'disabled'} onclick="meetGo(${A.mi - 1})">‹ Zurück</button>${A.mi < it.length - 1 ? `<button class="btn pri" onclick="meetGo(${A.mi + 1})">Besprochen, weiter ›</button>` : `<button class="btn pri" onclick="meetClose('${cur.id}')">Besprechung beenden</button>`}</div></div>` : ''}
+     <div class="gt">Tagesordnung (${nd} von ${it.length} besprochen)</div><div class="group">${it.map((x, i) => `<div class="row magenda${i === A.mi ? ' cur' : ''}" onclick="A.mi=${i};admin('meet')"><div style="display:flex;gap:12px;align-items:center"><span class="mno ${cur.done[x.id] ? 'ok' : ''}">${cur.done[x.id] ? '✓' : i + 1}</span><div class="t">${esc(x.text)}</div></div>${cur.dec[x.id] ? '<span class="chip">Vereinbarung</span>' : ''}</div>`).join('')}</div>
+     <div class="btns"><button class="btn pri" onclick="meetClose('${cur.id}')">Besprechung beenden</button><button class="btn" onclick="A.mv=null;admin('meet')">Später weiter</button><button class="btn danger" onclick="meetBack('${cur.id}')">Abbrechen</button></div>`;
   }
-  const open = mNotes().filter(n => !n.mid).sort((a, b) => b.ts - a.ts), w = A.mw || [];
+  if (cur && cur.closed) { // abgeschlossene Besprechung (auch aus der Vergangenheit)
+    const it = meetItems(cur), att = mAtt(cur), sg = mSigned(cur), abs = D.team.filter(t => !att.includes(t.p));
+    return `<div class="ahead" style="margin:16px 0 4px"><button class="btn" onclick="A.mv=null;admin('meet')">‹ Alle Besprechungen</button><div class="btns" style="margin:0">${sg.length < att.length ? `<button class="btn pri" onclick="ackRound('${cur.id}')">Unterschriften einholen</button>` : ''}<button class="btn" onclick="meetPdf('${cur.id}')">Protokoll (PDF)</button></div></div>
+     <div class="gt">Teambesprechung ${tsTxt(cur.ts)} · Leitung: Sevinc</div>
+     <div class="group">${it.map((n, i) => `<div class="row" style="display:block"><div class="t">${i + 1}. ${esc(n.text)}</div><div class="d">${cur.done[n.id] ? 'besprochen' : 'nicht besprochen'} · betrifft: ${esc(whoTxt(n.who))}</div>${cur.dec[n.id] ? `<div class="mdec">${esc(cur.dec[n.id])}</div>` : ''}</div>`).join('')}</div>
+     <div class="gt">Teilnahme bestätigt (${sg.length} von ${att.length})</div><div class="group">${att.map(p => { const a = (cur.acks || {})[p];
+       return `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ${a ? 'ok' : 'warn'}"></span><div class="t">${esc(pName(p))}</div></div><div class="d" style="margin:0">${a ? 'unterschrieben per PIN · ' + tsTxt(a) : 'Unterschrift fehlt'}</div></div>`; }).join('')}
+       ${abs.length ? `<div class="row"><div class="small">Nicht anwesend: ${esc(abs.map(t => t.name).join(', '))}</div></div>` : ''}</div>`;
+  }
+  const w = A.mw || [];
   return `<div class="gt">Neue Notiz</div><div class="group"><div class="row" style="display:block"><textarea id="mnew" class="azb-ta" rows="2" placeholder="Thema für die nächste Teambesprechung"></textarea>
      <div class="mwho"><span class="small">Betrifft:</span><button class="chip ${w.length ? '' : 'on'}" onclick="meetWho(-1)">Alle</button>${D.team.map(t => `<button class="chip ${w.includes(t.p) ? 'on' : ''}" onclick="meetWho(${t.p})">${esc(t.name)}</button>`).join('')}</div>
      <div class="btns"><button class="btn pri" onclick="meetAdd()">Notiz speichern</button></div></div></div>
-   <div class="ahead" style="margin:22px 4px 0"><div class="gt" style="margin:0">Gesammelte Themen (${open.length})</div>${open.length ? `<button class="btn pri" onclick="meetStart()">Teambesprechung starten</button>` : ''}</div>
+   <div class="ahead" style="margin:22px 4px 0"><div class="gt" style="margin:0">Tagesordnung für die nächste Besprechung (${open.length})</div>${open.length ? `<button class="btn pri" onclick="meetStart()">Besprechung starten</button>` : ''}</div>
    <div class="group">${open.map(n => `<div class="row"><div><div class="t">${esc(n.text)}</div><div class="d">${tsTxt(n.ts)} · betrifft: ${esc(whoTxt(n.who))}</div></div><button class="btn danger" onclick="meetDel('${n.id}')">Löschen</button></div>`).join('') || '<div class="row"><div class="small">Noch keine Themen gesammelt. Alles, was im Alltag auffällt, hier notieren. Bei der nächsten Teambesprechung ist dann alles beisammen.</div></div>'}</div>
-   ${all.length ? `<div class="gt">Besprechungen</div><div class="group">${all.map(m => { const n = meetItems(m).length, a = D.team.filter(t => (m.acks || {})[t.p]).length;
-     return `<div class="row" style="cursor:pointer" onclick="A.mv='${m.id}';admin('meet')"><div><div class="t">${tsTxt(m.ts)}</div><div class="d">${n} Themen · ${m.closed ? a + ' von ' + D.team.length + ' bestätigt' : 'läuft noch'}</div></div><span class="chip ${m.closed && a >= D.team.length ? 'in' : 'ps'}">${m.closed ? (a >= D.team.length ? 'Alle bestätigt' : 'Bestätigung offen') : 'Fortsetzen'}</span></div>`; }).join('')}</div>` : ''}`;
+   ${all.length ? `<div class="gt">Vergangene Besprechungen</div><div class="group">${all.map(m => { const n = meetItems(m).length, a = mSigned(m).length, t = mAtt(m).length;
+     return `<div class="row" style="cursor:pointer" onclick="A.mv='${m.id}';A.mi=0;admin('meet')"><div><div class="t">${tsTxt(m.ts)}</div><div class="d">${n} Themen · ${t} anwesend · ${m.closed ? a + ' von ' + t + ' unterschrieben' : 'läuft noch'}</div></div><span class="chip ${m.closed && a >= t ? 'in' : 'ps'}">${m.closed ? (a >= t ? 'Vollständig' : 'Unterschrift fehlt') : 'Fortsetzen'}</span></div>`; }).join('')}</div>` : ''}`;
 }
-// Bestätigungsrunde: Salonleitung gesperrt, jede Person bestätigt mit ihrer PIN
+// Unterschriften: Salonleitung gesperrt, nur Anwesende bestätigen ihre Teilnahme mit der Stempel-PIN
 function ackRound(mid) {
   window.ADM_OPEN = false;
-  const m = meetD().meets.find(x => x.id === mid); if (!m) return home();
-  const it = meetItems(m);
-  modal(`<h3>Teambesprechung</h3><div class="sub">${tsTxt(m.ts)} · bitte lesen und mit deiner PIN bestätigen</div>
-    <div class="group">${it.map(n => `<div class="row" style="display:block"><div class="t">${esc(n.text)}</div>${m.dec[n.id] ? `<div class="mdec">${esc(m.dec[n.id])}</div>` : ''}</div>`).join('')}</div>
-    <div class="mack">${D.team.map(t => { const a = (m.acks || {})[t.p];
-      return `<button class="act ${a ? 'sec' : ''}" ${a ? 'disabled' : ''} onclick="ackPin('${m.id}',${t.p})"><span>${esc(t.name)}</span><span class="small">${a ? 'bestätigt ' + hm(a) : 'zur Kenntnis nehmen'}</span></button>`; }).join('')}</div>
-    <button class="btn" style="width:100%;margin-top:14px" onclick="home()">Beenden</button>`, true);
-  idle(180);
+  const m = meetById(mid); if (!m) return home();
+  const it = meetItems(m), att = mAtt(m), all = mSigned(m).length >= att.length;
+  modal(`<div class="mstep"><span>3</span>Teilnahme bestätigen</div><h3>Teambesprechung</h3><div class="sub">${tsTxt(m.ts)} · Bitte die Punkte lesen und mit deiner PIN unterschreiben.</div>
+    <div class="group">${it.map((n, i) => `<div class="row" style="display:block"><div class="t">${i + 1}. ${esc(n.text)}</div>${m.dec[n.id] ? `<div class="mdec">${esc(m.dec[n.id])}</div>` : ''}</div>`).join('')}</div>
+    <div class="mack">${att.map(p => { const a = (m.acks || {})[p];
+      return `<button class="act ${a ? 'sec' : ''}" ${a ? 'disabled' : ''} onclick="ackPin('${m.id}',${p})"><span>${esc(pName(p))}</span><span class="small">${a ? '✓ unterschrieben ' + hm(a) + ' Uhr' : 'Mit PIN unterschreiben'}</span></button>`; }).join('')}</div>
+    ${all ? '<div class="note ok">Alle Anwesenden haben unterschrieben. Die Besprechung ist dokumentiert.</div>' : ''}
+    <button class="btn ${all ? 'pri' : ''}" style="width:100%;margin-top:14px" onclick="home()">${all ? 'Fertig' : 'Später fortsetzen'}</button>`, true);
+  idle(300);
 }
 function ackPin(mid, p) {
-  const t = D.team.find(x => x.p === p); if (!t) return;
-  if (!D.pins[p]) { alert('Für ' + t.name + ' ist noch keine PIN hinterlegt.'); return; }
-  pinPad(esc(t.name), 'Mit deiner PIN bestätigen: Ich habe die Besprechung zur Kenntnis genommen.', async v => {
+  const nm = pName(p);
+  if (!D.pins[p]) { alert('Für ' + nm + ' ist noch keine PIN hinterlegt.'); return; }
+  pinPad(esc(nm), 'Mit deiner PIN unterschreibst du: Ich war bei der Teambesprechung dabei und habe die Punkte zur Kenntnis genommen.', async v => {
     const lk = locked('p' + p); if (lk) return `Zu viele Versuche. Bitte ${lk} Sek. warten.`;
     if (await hash(p + ':' + v) !== D.pins[p]) { fail('p' + p); return 'PIN falsch'; }
     D.fails['p' + p] = { n: 0 };
-    const m = meetD().meets.find(x => x.id === mid); if (!m) return home();
-    m.acks = m.acks || {}; m.acks[p] = Date.now(); mBump(m); logx(`Besprechung ${dfmt(dkey(m.ts))}: ${t.name} hat zur Kenntnis genommen`); store(true); ackRound(mid);
+    const m = meetById(mid); if (!m) return home();
+    m.acks = m.acks || {}; m.acks[p] = Date.now(); mBump(m); logx(`Besprechung ${dfmt(dkey(m.ts))}: ${nm} hat die Teilnahme per PIN bestätigt`); store(true); ackRound(mid);
   });
 }
 function meetPdf(mid) {
-  const m = meetD().meets.find(x => x.id === mid); if (!m) return;
-  const P = pdfNew(), it = meetItems(m); P.eyebrow = 'SVNC HAIR & BEAUTY · TEAM';
-  P.head('Protokoll Teambesprechung', `SVNC Hair & Beauty · ${tsTxt(m.ts)}${m.closed ? ' · abgeschlossen ' + hm(m.closed) + ' Uhr' : ''}`);
-  P.h('Themen und Vereinbarungen');
+  const m = meetById(mid); if (!m) return;
+  const P = pdfNew(), it = meetItems(m), att = mAtt(m), abs = D.team.filter(t => !att.includes(t.p)); P.eyebrow = 'SVNC HAIR & BEAUTY · TEAM';
+  P.head('Protokoll Teambesprechung', `SVNC Hair & Beauty, Kornwestheim · ${tsTxt(m.ts)}${m.closed ? ' bis ' + hm(m.closed) + ' Uhr' : ''}`);
+  P.para('Leitung: Sevinc', { size: 10.5 }); P.para('Anwesend: ' + whoTxt(att), { size: 10.5 }); if (abs.length) P.para('Nicht anwesend: ' + abs.map(t => t.name).join(', '), { size: 10.5 });
+  P.h('Tagesordnung und Vereinbarungen');
   it.forEach((n, i) => { P.need(40); P.y += 4; P.para(`${i + 1}. ${n.text}`, { size: 10.5, bold: true }); P.para(`${m.done[n.id] ? 'besprochen' : 'nicht besprochen'} · betrifft: ${whoTxt(n.who)} · notiert ${tsTxt(n.ts)}`, { size: 8.5, color: [0.45, 0.45, 0.48] }); if (m.dec[n.id]) P.para('Vereinbarung: ' + m.dec[n.id], { size: 10, indent: 10, color: [0.6, 0.37, 0.19] }); });
-  P.h('Zur Kenntnis genommen');
-  D.team.forEach(t => { const a = (m.acks || {})[t.p]; P.para(`${t.name}: ${a ? 'bestätigt mit PIN am ' + tsTxt(a) : 'noch nicht bestätigt'}`, { size: 10, color: a ? [0.12, 0.48, 0.23] : [0.6, 0.3, 0] }); });
-  P.y += 10; P.para('Die Bestätigung erfolgte auf dem Salon-iPad mit der persönlichen PIN der Zeiterfassung.', { size: 8.5, color: [0.45, 0.45, 0.48] });
+  P.h('Unterschriften der Teilnehmenden');
+  att.forEach(p => { const a = (m.acks || {})[p]; P.need(26); P.y += 4; P.para(pName(p), { size: 10.5, bold: true }); P.para(a ? 'Teilnahme bestätigt mit persönlicher PIN am ' + tsTxt(a) : 'Unterschrift fehlt', { size: 9.5, color: a ? [0.12, 0.48, 0.23] : [0.6, 0.3, 0] }); P.line(); });
+  P.y += 10; P.para('Die Unterschrift erfolgte auf dem Salon-iPad mit der persönlichen PIN der SVNC Zeiterfassung. Datum und Uhrzeit wurden automatisch festgehalten.', { size: 8.5, color: [0.45, 0.45, 0.48] });
   const fn = `Teambesprechung_${dkey(m.ts)}.pdf`, f = new File([P.build()], fn, { type: 'application/pdf' });
   if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], title: fn }).catch(() => {});
   else { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = fn; document.body.appendChild(a); a.click(); a.remove(); }
