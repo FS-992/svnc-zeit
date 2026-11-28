@@ -302,6 +302,8 @@ input[type=time]:focus,input[type=text]:focus,input[type=date]:focus,select:focu
 .mper{display:flex;align-items:center;gap:12px;border:0;border-radius:16px;padding:14px 16px;background:var(--fill);color:var(--ink);font-size:17px;font-weight:600;text-align:left}
 .mper .av{width:40px;height:40px;font-size:17px}.mper .mtick{margin-left:auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--sep);font-size:15px}
 .mper.on{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--coral)}.mper.on .mtick{background:var(--coral);color:#fff;box-shadow:none}
+.mreq.done b{text-decoration:line-through;color:var(--muted)}
+.msug{margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--accent-soft)}.msug-h{font-size:12.5px;font-weight:600;color:var(--coral);margin-bottom:4px}.msug-t{font-size:15.5px;color:var(--ink);line-height:1.4;margin-bottom:8px}
 .mcard{background:var(--card2);border-radius:20px;padding:24px;box-shadow:0 0 0 .5px var(--sep)}
 .mnum{font-size:13px;font-weight:600;color:var(--coral);margin-bottom:8px}.mtxt{font-size:24px;font-weight:700;color:var(--ink);letter-spacing:-.015em;line-height:1.25;margin-bottom:6px}
 .mnav2{justify-content:space-between;margin-top:6px}
@@ -1065,7 +1067,7 @@ const APP_T = Object.assign(Object.fromEntries(APPS), { sick: 'Urlaub & Krank' }
 const appIc = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${APP_IC[k]}</svg>`;
 function appBadge(k) {
   if (k === 'status') return issues().length; if (k === 'vac') return vacOpenN(); if (k === 'dev') return devOpenN();
-  if (k === 'meet') return meetOpenAcks(); if (k === 'set') return syncLine().cls === 'bad' ? 1 : 0; return 0;
+  if (k === 'meet') return meetOpenAcks() + reqOpen().length; if (k === 'set') return syncLine().cls === 'bad' ? 1 : 0; return 0;
 }
 function launchGrid() {
   const apps = APPS.filter(([k]) => !(PHONE && k === 'team' && D.team.length));
@@ -1094,6 +1096,30 @@ const mSigned = m => mAtt(m).filter(p => (m.acks || {})[p]);
 function meetOpenAcks() { return mMeets().filter(m => m.closed).reduce((s, m) => s + mAtt(m).length - mSigned(m).length, 0); }
 const meetById = id => meetD().meets.find(x => x.id === id);
 function meetItems(m) { return (m.items || []).map(id => meetD().notes.find(n => n.id === id)).filter(n => n && !n.del); }
+// Anliegen aus dem Team: Sevinc notiert in der Besprechung, was sie selbst umsetzen oder überdenken soll
+const REQ_K = { todo: 'Sevinc kümmert sich', think: 'Sevinc denkt darüber nach' };
+const mReqs = m => (m.req || []).filter(r => !r.del);
+const reqOpen = () => mMeets().flatMap(m => mReqs(m).filter(r => !r.done).map(r => ({ m, r })));
+function reqAdd(mid) {
+  const m = meetById(mid), t = ($('#rnew').value || '').trim(); if (!m || !t) return;
+  m.req = m.req || []; m.req.push({ id: rnd(8), ts: Date.now(), from: A.rfrom == null ? null : A.rfrom, text: t, kind: A.rkind || 'todo', done: 0, note: '' });
+  mBump(m); A.rfrom = null; logx('Besprechung: Anliegen notiert'); store(true); admin('meet');
+}
+function reqSet(mid, rid, key, v, quiet) { const m = meetById(mid), r = m && (m.req || []).find(x => x.id === rid); if (!r) return; r[key] = v; if (key === 'done') logx(`Anliegen ${v ? 'erledigt' : 'wieder offen'}: ${r.text.slice(0, 40)}`); mBump(m); store(true); if (!quiet) admin('meet'); }
+function reqDel(mid, rid) { if (!confirm('Anliegen löschen?')) return; reqSet(mid, rid, 'del', true); }
+function reqForm(m) {
+  const att = mAtt(m), k = A.rkind || 'todo';
+  return `<div class="row" style="display:block"><textarea id="rnew" class="azb-ta" rows="2" placeholder="Anliegen, Wunsch oder Idee aus dem Team"></textarea>
+    <div class="mwho"><span class="small">Von:</span><button class="chip ${A.rfrom == null ? 'on' : ''}" onclick="A.rfrom=null;reqKeep()">Team</button>${att.map(p => `<button class="chip ${A.rfrom === p ? 'on' : ''}" onclick="A.rfrom=${p};reqKeep()">${esc(pName(p))}</button>`).join('')}</div>
+    <div class="mwho"><span class="small">Für Sevinc:</span>${Object.entries(REQ_K).map(([key, l]) => `<button class="chip ${k === key ? 'on' : ''}" onclick="A.rkind='${key}';reqKeep()">${l}</button>`).join('')}</div>
+    <div class="btns"><button class="btn pri" onclick="reqAdd('${m.id}')">Anliegen notieren</button></div></div>`;
+}
+function reqKeep() { const v = $('#rnew') ? $('#rnew').value : ''; admin('meet'); if ($('#rnew')) $('#rnew').value = v; }
+function reqRow(m, r, edit) {
+  return `<div class="row mreq${r.done ? ' done' : ''}" style="display:block"><label class="mchk"><input type="checkbox" ${r.done ? 'checked' : ''} onchange="reqSet('${m.id}','${r.id}','done',this.checked?Date.now():0)"><span><b>${esc(r.text)}</b>
+    <span class="small" style="display:block">von ${r.from == null ? 'Team' : esc(pName(r.from))} · ${REQ_K[r.kind] || ''} · ${tsTxt(r.ts)}${r.done ? ' · erledigt ' + dfmt(dkey(r.done)) : ''}</span></span></label>
+    ${edit ? `<textarea class="azb-ta" rows="1" placeholder="Was hat Sevinc entschieden oder umgesetzt? (optional)" oninput="reqSet('${m.id}','${r.id}','note',this.value,1)">${esc(r.note || '')}</textarea><div class="btns"><button class="btn danger" onclick="reqDel('${m.id}','${r.id}')">Löschen</button></div>` : r.note ? `<div class="mdec">${esc(r.note)}</div>` : ''}</div>`;
+}
 // Notizen
 function meetAdd() {
   const t = ($('#mnew').value || '').trim(); if (!t) return;
@@ -1145,6 +1171,7 @@ function aMeet() {
        <textarea class="azb-ta" rows="2" placeholder="Vereinbarung zu diesem Punkt (optional)" oninput="meetDec('${cur.id}','${n.id}',this.value)">${esc(cur.dec[n.id] || '')}</textarea>
        <div class="btns mnav2"><button class="btn" ${A.mi ? '' : 'disabled'} onclick="meetGo(${A.mi - 1})">‹ Zurück</button>${A.mi < it.length - 1 ? `<button class="btn pri" onclick="meetGo(${A.mi + 1})">Besprochen, weiter ›</button>` : `<button class="btn pri" onclick="meetClose('${cur.id}')">Besprechung beenden</button>`}</div></div>` : ''}
      <div class="gt">Tagesordnung (${nd} von ${it.length} besprochen)</div><div class="group">${it.map((x, i) => `<div class="row magenda${i === A.mi ? ' cur' : ''}" onclick="A.mi=${i};admin('meet')"><div style="display:flex;gap:12px;align-items:center"><span class="mno ${cur.done[x.id] ? 'ok' : ''}">${cur.done[x.id] ? '✓' : i + 1}</span><div class="t">${esc(x.text)}</div></div>${cur.dec[x.id] ? '<span class="chip">Vereinbarung</span>' : ''}</div>`).join('')}</div>
+     <div class="gt">Anliegen aus dem Team (${mReqs(cur).length})</div><div class="group">${mReqs(cur).map(r => reqRow(cur, r, true)).join('')}${reqForm(cur)}</div>
      <div class="btns"><button class="btn pri" onclick="meetClose('${cur.id}')">Besprechung beenden</button><button class="btn" onclick="A.mv=null;admin('meet')">Später weiter</button><button class="btn danger" onclick="meetBack('${cur.id}')">Abbrechen</button></div>`;
   }
   if (cur && cur.closed) { // abgeschlossene Besprechung (auch aus der Vergangenheit)
@@ -1152,6 +1179,7 @@ function aMeet() {
     return `<div class="ahead" style="margin:16px 0 4px"><button class="btn" onclick="A.mv=null;admin('meet')">‹ Alle Besprechungen</button><div class="btns" style="margin:0">${sg.length < att.length ? `<button class="btn pri" onclick="ackRound('${cur.id}')">Unterschriften einholen</button>` : ''}<button class="btn" onclick="meetPdf('${cur.id}')">Protokoll (PDF)</button></div></div>
      <div class="gt">Teambesprechung ${tsTxt(cur.ts)} · Leitung: Sevinc</div>
      <div class="group">${it.map((n, i) => `<div class="row" style="display:block"><div class="t">${i + 1}. ${esc(n.text)}</div><div class="d">${cur.done[n.id] ? 'besprochen' : 'nicht besprochen'} · betrifft: ${esc(whoTxt(n.who))}</div>${cur.dec[n.id] ? `<div class="mdec">${esc(cur.dec[n.id])}</div>` : ''}</div>`).join('')}</div>
+     ${mReqs(cur).length ? `<div class="gt">Anliegen aus dem Team</div><div class="group">${mReqs(cur).map(r => reqRow(cur, r, true)).join('')}</div>` : ''}
      <div class="gt">Teilnahme bestätigt (${sg.length} von ${att.length})</div><div class="group">${att.map(p => { const a = (cur.acks || {})[p];
        return `<div class="row"><div style="display:flex;gap:12px;align-items:center"><span class="dot ${a ? 'ok' : 'warn'}"></span><div class="t">${esc(pName(p))}</div></div><div class="d" style="margin:0">${a ? 'unterschrieben per PIN · ' + tsTxt(a) : 'Unterschrift fehlt'}</div></div>`; }).join('')}
        ${abs.length ? `<div class="row"><div class="small">Nicht anwesend: ${esc(abs.map(t => t.name).join(', '))}</div></div>` : ''}</div>`;
@@ -1160,8 +1188,9 @@ function aMeet() {
   return `<div class="gt">Neue Notiz</div><div class="group"><div class="row" style="display:block"><textarea id="mnew" class="azb-ta" rows="2" placeholder="Thema für die nächste Teambesprechung"></textarea>
      <div class="mwho"><span class="small">Betrifft:</span><button class="chip ${w.length ? '' : 'on'}" onclick="meetWho(-1)">Alle</button>${D.team.map(t => `<button class="chip ${w.includes(t.p) ? 'on' : ''}" onclick="meetWho(${t.p})">${esc(t.name)}</button>`).join('')}</div>
      <div class="btns"><button class="btn pri" onclick="meetAdd()">Notiz speichern</button></div></div></div>
+   ${reqOpen().length ? `<div class="gt">Offene Anliegen für Sevinc (${reqOpen().length})</div><div class="group">${reqOpen().map(({ m, r }) => reqRow(m, r, false)).join('')}</div>` : ''}
    <div class="ahead" style="margin:22px 4px 0"><div class="gt" style="margin:0">Tagesordnung für die nächste Besprechung (${open.length})</div>${open.length ? `<button class="btn pri" onclick="meetStart()">Besprechung starten</button>` : ''}</div>
-   <div class="group">${open.map(n => `<div class="row"><div><div class="t">${esc(n.text)}</div><div class="d">${tsTxt(n.ts)} · betrifft: ${esc(whoTxt(n.who))}</div></div><button class="btn danger" onclick="meetDel('${n.id}')">Löschen</button></div>`).join('') || '<div class="row"><div class="small">Noch keine Themen gesammelt. Alles, was im Alltag auffällt, hier notieren. Bei der nächsten Teambesprechung ist dann alles beisammen.</div></div>'}</div>
+   <div class="group">${open.map(n => `<div class="row"><div style="flex:1;min-width:0"><div class="t">${esc(n.text)}</div><div class="d">${tsTxt(n.ts)} · betrifft: ${esc(whoTxt(n.who))}</div></div><button class="btn danger" onclick="meetDel('${n.id}')">Löschen</button></div>`).join('') || '<div class="row"><div class="small">Noch keine Themen gesammelt. Alles, was im Alltag auffällt, hier notieren. Bei der nächsten Teambesprechung ist dann alles beisammen.</div></div>'}</div>
    ${all.length ? `<div class="gt">Vergangene Besprechungen</div><div class="group">${all.map(m => { const n = meetItems(m).length, a = mSigned(m).length, t = mAtt(m).length;
      return `<div class="row" style="cursor:pointer" onclick="A.mv='${m.id}';A.mi=0;admin('meet')"><div><div class="t">${tsTxt(m.ts)}</div><div class="d">${n} Themen · ${t} anwesend · ${m.closed ? a + ' von ' + t + ' unterschrieben' : 'läuft noch'}</div></div><span class="chip ${m.closed && a >= t ? 'in' : 'ps'}">${m.closed ? (a >= t ? 'Vollständig' : 'Unterschrift fehlt') : 'Fortsetzen'}</span></div>`; }).join('')}</div>` : ''}`;
 }
@@ -1172,6 +1201,7 @@ function ackRound(mid) {
   const it = meetItems(m), att = mAtt(m), all = mSigned(m).length >= att.length;
   modal(`<div class="mstep"><span>3</span>Teilnahme bestätigen</div><h3>Teambesprechung</h3><div class="sub">${tsTxt(m.ts)} · Bitte die Punkte lesen und mit deiner PIN unterschreiben.</div>
     <div class="group">${it.map((n, i) => `<div class="row" style="display:block"><div class="t">${i + 1}. ${esc(n.text)}</div>${m.dec[n.id] ? `<div class="mdec">${esc(m.dec[n.id])}</div>` : ''}</div>`).join('')}</div>
+    ${mReqs(m).length ? `<div class="gt">Eure Anliegen, notiert für Sevinc</div><div class="group">${mReqs(m).map(r => `<div class="row" style="display:block"><div class="t">${esc(r.text)}</div><div class="d">von ${r.from == null ? 'Team' : esc(pName(r.from))} · ${REQ_K[r.kind] || ''}</div></div>`).join('')}</div>` : ''}
     <div class="mack">${att.map(p => { const a = (m.acks || {})[p];
       return `<button class="act ${a ? 'sec' : ''}" ${a ? 'disabled' : ''} onclick="ackPin('${m.id}',${p})"><span>${esc(pName(p))}</span><span class="small">${a ? '✓ unterschrieben ' + hm(a) + ' Uhr' : 'Mit PIN unterschreiben'}</span></button>`; }).join('')}</div>
     ${all ? '<div class="note ok">Alle Anwesenden haben unterschrieben. Die Besprechung ist dokumentiert.</div>' : ''}
@@ -1196,6 +1226,7 @@ function meetPdf(mid) {
   P.para('Leitung: Sevinc', { size: 10.5 }); P.para('Anwesend: ' + whoTxt(att), { size: 10.5 }); if (abs.length) P.para('Nicht anwesend: ' + abs.map(t => t.name).join(', '), { size: 10.5 });
   P.h('Tagesordnung und Vereinbarungen');
   it.forEach((n, i) => { P.need(40); P.y += 4; P.para(`${i + 1}. ${n.text}`, { size: 10.5, bold: true }); P.para(`${m.done[n.id] ? 'besprochen' : 'nicht besprochen'} · betrifft: ${whoTxt(n.who)} · notiert ${tsTxt(n.ts)}`, { size: 8.5, color: [0.45, 0.45, 0.48] }); if (m.dec[n.id]) P.para('Vereinbarung: ' + m.dec[n.id], { size: 10, indent: 10, color: [0.6, 0.37, 0.19] }); });
+  if (mReqs(m).length) { P.h('Anliegen aus dem Team'); mReqs(m).forEach(r => { P.need(34); P.y += 4; P.para(r.text, { size: 10.5, bold: true }); P.para(`von ${r.from == null ? 'Team' : pName(r.from)} · ${REQ_K[r.kind] || ''} · ${r.done ? 'erledigt am ' + dfmt(dkey(r.done)) : 'offen'}`, { size: 8.5, color: [0.45, 0.45, 0.48] }); if (r.note) P.para('Ergebnis: ' + r.note, { size: 10, indent: 10, color: [0.6, 0.37, 0.19] }); }); }
   P.h('Unterschriften der Teilnehmenden');
   att.forEach(p => { const a = (m.acks || {})[p]; P.need(26); P.y += 4; P.para(pName(p), { size: 10.5, bold: true }); P.para(a ? 'Teilnahme bestätigt mit persönlicher PIN am ' + tsTxt(a) : 'Unterschrift fehlt', { size: 9.5, color: a ? [0.12, 0.48, 0.23] : [0.6, 0.3, 0] }); P.line(); });
   P.y += 10; P.para('Die Unterschrift erfolgte auf dem Salon-iPad mit der persönlichen PIN der SVNC Zeiterfassung. Datum und Uhrzeit wurden automatisch festgehalten.', { size: 8.5, color: [0.45, 0.45, 0.48] });
