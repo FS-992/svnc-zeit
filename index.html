@@ -213,6 +213,31 @@ tr.sum td{font-weight:700;border-top:2px solid var(--line)}
 @media (max-width:700px){.grid2,.grid3{grid-template-columns:1fr}.pad{grid-template-columns:repeat(3,74px);gap:14px 20px}.pad button{width:74px;height:74px}}
 
 #psheet{display:none}
+
+/* Ausbildung (Salonleitung) */
+.azb-seg{flex:none;overflow:visible}.azb-seg button{padding:7px 11px;font-size:13px;flex:none}
+.azb-row{align-items:center}.azb-t{font-size:15px!important;flex:1;min-width:0}
+.azb-row.now{background:var(--accent-soft);margin:0 -18px;padding-left:18px;padding-right:18px}
+.azb-focus{font-size:18px!important;font-weight:600!important}
+.azb-chk{justify-content:flex-start!important;cursor:pointer;font-size:15px;color:var(--ink)}
+.azb-chk input{width:22px;height:22px;flex:none;accent-color:var(--coral)}
+.azb-chk.done span{color:var(--muted);text-decoration:line-through}
+.azb-bar{height:7px;border-radius:999px;background:var(--line);overflow:hidden;margin:12px 0 4px}
+.azb-bar i{display:block;height:100%;border-radius:999px;background:var(--coral)}
+.azb-days{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:12px}
+.azb-day{background:var(--card2);border-radius:16px;padding:12px 14px;box-shadow:inset 0 0 0 1px var(--line)}
+.azb-day.today{box-shadow:inset 0 0 0 2px var(--coral)}
+.azb-day .t{font-weight:600;color:var(--ink);margin-bottom:6px}
+.azb-slot{display:flex;gap:10px;padding:5px 0;font-size:13px;color:var(--text);border-top:1px solid var(--line)}
+.azb-slot span:first-child{width:84px;flex:none;color:var(--muted)}
+.azb-slot.pause,.azb-slot.school{color:var(--muted)}
+.azb-slot.clean{background:var(--accent-soft);border-radius:10px;margin:3px -6px 0;padding:6px;border-top:0;font-weight:600}
+.azb-fer{display:flex;gap:8px;align-items:center;margin:10px 4px}
+.azb-ta{width:100%;margin:8px 0;font:inherit;font-size:15px;color:var(--ink);background:var(--card);border:0;border-radius:12px;padding:12px;box-shadow:inset 0 0 0 1px var(--line);resize:vertical}
+.azb-top{background:var(--card2);border-radius:16px;margin:10px 0;padding:4px 16px;box-shadow:inset 0 0 0 1px var(--line)}
+.azb-top.now{box-shadow:inset 0 0 0 2px var(--coral)}
+.azb-top summary{display:flex;gap:10px;align-items:center;padding:12px 0;cursor:pointer;list-style:none}
+.azb-nm{flex:1;font-weight:600;color:var(--ink)}.azb-pc{width:120px;display:flex;flex-direction:column}.azb-pc .azb-bar{margin:0 0 2px}
 @media print{
   @page{size:A4;margin:14mm}
   body.pr>*:not(#psheet){display:none!important}
@@ -341,7 +366,7 @@ const AUTO = { handle: null, ok: false, last: 0, err: '', timer: null, name: '' 
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open('svnc_zeit', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbSet(k, v) { const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); if (v == null) tx.objectStore('kv').delete(k); else tx.objectStore('kv').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
 async function idbGet(k) { const db = await idb(); return new Promise((res, rej) => { const r = db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj, sick: D.sick, dev: D.dev, teamData: D.team.length ? { at: D.teamAt || 1, planAt: D.planAt || 0, team: D.team, cal: D.cal || null, hours: D.hours || null, snap: D.snap || null } : null });
+const exportData = () => ({ kind: 'svnc-stempel', version: 3, device: D.device, exported: Date.now(), resetAt: D.resetAt || 0, events: D.events, log: D.log, vacReqs: D.vacReqs, vacAdj: D.vacAdj, sick: D.sick, dev: D.dev, azb: D.azb || null, teamData: D.team.length ? { at: D.teamAt || 1, planAt: D.planAt || 0, team: D.team, cal: D.cal || null, hours: D.hours || null, snap: D.snap || null } : null });
 async function autoInit() {
   if (!FS_OK) return;
   try { const h = await idbGet('handle'); if (!h) return; AUTO.handle = h; AUTO.name = h.name;
@@ -460,7 +485,10 @@ async function odSync() {
         D.unsynced = Math.max(0, (D.unsynced || 0) - u); D.lastExport = Date.now();
       }
       OD.cfg.last = Date.now(); OD.err = ''; odSave(); store();
-      if ((pulled || feed) && !$('#modal').innerHTML) home();
+      if (pulled || feed) { // nach dem Abgleich frische Daten zeigen, auch in der offenen Salonleitung (nicht beim Tippen)
+        if (!$('#modal').innerHTML) home();
+        else if (window.ADM_OPEN && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) admin();
+      }
       break;
     }
   } catch (e) { OD.err = OD.needLogin ? '' : (e.name === 'TypeError' ? 'keine Verbindung' : (e.message || 'Fehler')); }
@@ -525,12 +553,11 @@ const PHONE = /iPhone|Android.*Mobile/i.test(navigator.userAgent) || /[?&]phone=
 const OFFICE = !PHONE && ((!(navigator.maxTouchPoints > 0) && !/[?&]salon=1\b/.test(location.search)) || /[?&]office=1\b/.test(location.search));
 let OFFICE_OPENED = false;
 function home() {
-  closeModal();
+  closeModal(); window.ADM_OPEN = false;
   if (OFFICE && !D.admin) { D.admin = 'office'; store(); }
   if (!D.admin) { $('#app').innerHTML = `<div class="empty"><h2>Willkommen</h2><p>Zuerst eine Admin-PIN für die Salonleitung festlegen und das Team laden.</p><button class="act" style="display:inline-flex;margin-top:12px;padding:16px 28px" onclick="setupAdmin()">Einrichtung starten</button></div>`; refreshChrome(); return; }
   if (!D.team.length) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty"><h2>Kein Team geladen</h2>${OFFICE ? '<p>Zahnrad → Technik: Client-ID eintragen und bei OneDrive anmelden. Das Team kommt dann automatisch vom iPad.</p>' : '<p>Oben rechts über das Zahnrad → Team → „Team laden“ die Datei der Personalplanung wählen.</p>'}</div>`; refreshChrome(); return; }
-  if (PHONE || OFFICE) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub, Krank und Korrekturen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">${OFFICE ? 'Verwaltung öffnen' : 'Mit PIN öffnen'}</button></div>`; refreshChrome();
-    if (OFFICE && !OFFICE_OPENED) { OFFICE_OPENED = true; setTimeout(askAdmin, 60); }
+  if (PHONE || OFFICE) { $('#app').innerHTML = `<div id="odslot"></div><div class="empty" style="padding:36px 20px"><h2>Salonleitung</h2><p>Stunden, Urlaub, Krank und Korrekturen.</p><button class="act" style="margin:16px auto 0;padding:16px 28px" onclick="askAdmin()">${OFFICE ? 'Verwaltung öffnen' : 'Mit PIN öffnen'}</button></div>`; refreshChrome();  // Salonleitung öffnet sich nur über das Zahnrad bzw. „Verwaltung öffnen“ (kein automatisches Öffnen mehr)
     return; }
   const t = today(), y = yesterday(), now = Date.now(), h = new Date().getHours();
   const tiles = D.team.map(m => {
@@ -684,10 +711,10 @@ function askAdmin() {
 }
 function absSw() { return A.tab === 'vac' || A.tab === 'sick' ? `<div class="seg" style="margin-top:10px"><button class="${A.tab === 'vac' ? 'on' : ''}" onclick="admin('vac')">Urlaub</button><button class="${A.tab === 'sick' ? 'on' : ''}" onclick="admin('sick')">Krank</button></div>` : ''; }
 function admin(tab) {
-  if (tab) A.tab = tab;
+  if (tab) A.tab = tab; window.ADM_OPEN = true;
   const np = vacOpenN(), nd = devOpenN();
-  const tabs = [['status', 'Heute'], ['vac', 'Abwesenheit' + (np ? `<span class="cnt">${np}</span>` : '')], ['dev', 'Abweichungen' + (nd ? `<span class="cnt">${nd}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['team', 'Team'], ['log', 'Protokoll']].filter(t => !(PHONE && t[0] === 'team' && D.team.length));
-  const body = { status: aStatus, vac: aVac, sick: aSick, dev: aDev, fix: aFix, month: aMonth, team: aTeam, log: aLog }[A.tab]();
+  const tabs = [['status', 'Heute'], ['vac', 'Abwesenheit' + (np ? `<span class="cnt">${np}</span>` : '')], ['dev', 'Abweichungen' + (nd ? `<span class="cnt">${nd}</span>` : '')], ['fix', 'Korrekturen'], ['month', 'Monat'], ['azb', 'Ausbildung'], ['team', 'Team'], ['log', 'Protokoll']].filter(t => !(PHONE && t[0] === 'team' && D.team.length));
+  const body = { status: aStatus, vac: aVac, sick: aSick, dev: aDev, fix: aFix, month: aMonth, azb: aAzb, team: aTeam, log: aLog }[A.tab]();
   modal(`<div class="ahead"><h3>Salonleitung</h3><button class="btn" onclick="home()">Fertig</button></div>
     <div class="seg">${tabs.map(([k, l]) => `<button class="${A.tab === k || (k === 'vac' && A.tab === 'sick') ? 'on' : ''}" onclick="admin('${k}')">${l}</button>`).join('')}</div>${absSw()}${body}`, true);
   idle(240); refreshChrome();
@@ -781,6 +808,168 @@ function vacDaysMap(p) { // Datum -> 1 / 0,5 (Personalplanung + genehmigt, noch 
   return mp;
 }
 function vacInMonth(p, ym) { const mp = vacDaysMap(p); return Object.entries(mp).filter(([d]) => d.startsWith(ym)).reduce((s, [, v]) => s + v, 0); }
+
+/* ---------- Ausbildung (nur Salonleitung): Ausbildungsplan Friseur/in, Wochencheck, Ordnung, PDF an die Azubi ---------- */
+const AZB_TOPICS = [
+ ['4.3', 'Schutz von Haut & Atemwegen, Hygiene', ['Hautschutzplan kennen: Handschuhe bei Farbe, Wäsche und Desinfektion, Hände eincremen vor und nach der Arbeit', 'Kundenschutz anwenden: Umhang, Nackenpapier, vor Farbe nach Allergien fragen', 'Arbeitskleidung und persönliche Hygiene, Hygieneplan des Salons erklären können']],
+ ['4.2', 'Maschinen, Geräte & Werkzeuge pflegen', ['Scheren, Kämme, Bürsten und Clipper reinigen und desinfizieren, Ablauf selbständig', 'Reinigungs- und Desinfektionsmittel richtig dosieren, Einwirkzeit, umweltgerecht entsorgen']],
+ ['4.1', 'Betriebs- & Arbeitsabläufe', ['Arbeitsplatz morgens hygienisch, ordentlich und ergonomisch einrichten', 'Material kostenbewusst einsetzen: Shampoo dosieren, Farbe abwiegen, nichts verschwenden', 'Termine des Tages in Salonkee ansehen und mitdenken: was kommt als Nächstes, was muss vorbereitet sein', 'Wareneingang prüfen, Ware einräumen, Bestand und Fehlmengen notieren']],
+ ['1.1', 'Kunden- & dienstleistungsorientiert handeln', ['Auftreten im Salon: Begrüßung, Freundlichkeit, Handy weg, aktiv mithelfen', 'Was macht Kunden zu Stammkunden? Eigene Beispiele aus dem Salon sammeln']],
+ ['4.6', 'Informations- & Kommunikationssysteme', ['Salonkee: Kundenkartei ansehen und unter Aufsicht pflegen (Farbrezepte, Notizen)', 'Datenschutz: was darf über Kunden gesagt, notiert oder fotografiert werden']],
+ ['1.2', 'Betreuen, Beraten & Verkaufen', ['Kunden empfangen: Jacke abnehmen, Getränk anbieten, Platz zuweisen', 'Kunden während der Behandlung betreuen: Wartezeit, Zeitschrift, Getränk nachfragen', 'Verabschieden, kassieren lassen, Folgetermin anbieten', 'Wünsche erfragen: offene Fragen stellen und zuhören', 'Körpersprache, Blickkontakt und Ton bewusst einsetzen', 'Kurzes Beratungsgespräch zu einem Pflegeprodukt üben (Rollenspiel mit Sevinc)']],
+ ['2.1', 'Haar & Kopfhaut pflegen', ['Zustand von Haar und Kopfhaut prüfen und benennen (trocken, fettig, Schuppen, strapaziert)', 'Shampoo und Pflege passend auswählen und richtig dosieren', 'Haarwäsche: Technik, Wassertemperatur, Kundin fragen ob alles angenehm ist', 'Kur und Pflegebehandlung anwenden, Einwirkzeit einhalten', 'Kopfmassage mit verschiedenen Techniken', 'Haarteile und Haarersatz reinigen und pflegen', 'Wiederholung: komplette Wäsche mit Pflege und Massage selbständig']],
+ ['2.3', 'Frisuren gestalten (Föhnen, Wickeln)', ['Stylingprodukte kennen: wofür welches Produkt, wie viel', 'Wasserwelle und Wickeln am Übungskopf', 'Papillotieren und Wellen legen', 'Glatt föhnen mit Rundbürste am Übungskopf', 'Volumen föhnen am Übungskopf', 'Föhnen am Modell oder an einer Kundin unter Aufsicht', 'Glätteisen und Lockenstab sicher anwenden', 'Wiederholung: komplette Föhnfrisur in vorgegebener Zeit']],
+ ['2.2', 'Haarschneiden (klassisch)', ['Haaransatz, Wuchsrichtung und Fall des Haares erkennen', 'Haare vorformen und sauber abteilen', 'Haarlängen für die geplante Frisur bestimmen', 'Stumpfschnitt Grundlage am Übungskopf', 'Stumpfschnitt Bob am Übungskopf', 'Konturen schneiden (Nacken, Ohren, Pony)', 'Übergang schneiden am Übungskopf', 'Stufenschnitt Grundlage', 'Herrenschnitt klassisch am Übungskopf', 'Spitzen schneiden am Modell', 'Haarschnitt am Modell unter Aufsicht', 'Wiederholung: Schnitt nach Vorgabe, Ergebnis mit Sevinc besprechen']],
+ ['2.5', 'Farbverändernde Haarbehandlungen', ['Ausgangsfarbe bestimmen (Farbtiefe, Richtung, Grauanteil)', 'Farbkreis und Farbnummern verstehen', 'Tönung mit direkt ziehenden Farbstoffen anwenden', 'Farbe abwiegen und mischen nach Rezept', 'Ansatzfarbe auftragen am Übungskopf', 'Ansatzfarbe an einer Kundin unter Aufsicht', 'Strähnen mit Folie am Übungskopf', 'Blondierung: Sicherheit, Auftragen, Kontrolle', 'Weitere Applikationstechniken (Haube, Freihand)', 'Zielfarbe empfehlen und Behandlung festlegen (mit Sevinc)', 'Farbe komplett: Beratung, Mischen, Auftragen', 'Wiederholung und Farbrezept in die Kundenkartei eintragen']],
+ ['2.4', 'Dauerhaft umformen (Dauerwelle)', ['Wicklerarten und Wickeltechniken kennen', 'Abteilen und Wickeln Grundtechnik am Übungskopf', 'Wickeln Grundtechnik, Tempo steigern', 'Wickeltechnik für Volumen und Ansatz', 'Präparate kennen und richtig auswählen', 'Vorbehandlung des Haares', 'Umformungstechniken auswählen', 'Dauerwelle am Übungskopf komplett', 'Einwirkzeit überwachen, Probewickler prüfen', 'Fixieren und Nachbehandlung', 'Dauerwelle am Modell unter Aufsicht', 'Ergebnis beurteilen und Korrekturen besprechen', 'Wiederholung komplette Dauerwelle', 'Wiederholung auf Zeit (Prüfungsvorbereitung)']],
+ ['3', 'Dekorative Kosmetik & Maniküre', ['Hautzustand prüfen, Haut reinigen, Kompresse legen', 'Tages-Make-up gestalten', 'Hände und Nägel beurteilen', 'Nagelhaut behandeln und Nägel formen', 'Augenbrauen formen und färben', 'Wimpern färben']],
+];
+const AZB_BEGLEIT = ['Aufbau und Abläufe des Salons erklären können', 'Rechte und Pflichten aus dem Ausbildungsvertrag kennen', 'Eigene Gehaltsabrechnung verstehen', 'Arbeitsschutz und Unfallverhütung anwenden', 'Ergonomisch arbeiten (Haltung, Stuhlhöhe)', 'Verhalten bei Unfall und Brand, Feuerlöscher und Verbandskasten finden', 'Müll trennen, Farbreste richtig entsorgen', 'Wasser und Strom sparen', 'Datenschutz bei Kundendaten einhalten', 'Berichtsheft (Ausbildungsnachweis) wöchentlich führen'];
+const AZB_ORDNUNG = ['Föhn, Glätteisen und Lockenstab ausschalten, abkühlen lassen, verstauen', 'Scheren, Kämme, Bürsten reinigen und desinfizieren', 'Farbschälchen und Pinsel spülen, Farbreste richtig entsorgen', 'Arbeitsplätze abwischen, Spiegel putzen', 'Waschbecken reinigen, Haare aus dem Abfluss', 'Handtücher und Umhänge in die Wäsche, Maschine oder Trockner starten bzw. leeren', 'Produkte auffüllen und Regale ordnen, leere Produkte notieren', 'Haare fegen, Boden wischen', 'Müll trennen und rausbringen', 'Kundenbereich, Getränke und Toilette prüfen', 'Termine für den nächsten Tag in Salonkee ansehen', 'Rundgang: alles so, wie man es morgens vorfinden möchte?'];
+const AZB_MORGEN = ['Arbeitskleidung an, Hände eincremen (Hautschutz)', 'Arbeitsplatz einrichten: Werkzeug, Handtücher, Umhänge bereit', 'Waschplatz vorbereiten', 'Termine des Tages ansehen: wo kann ich helfen?'];
+const AZB_ST = ['offen', 'gezeigt', 'geübt', 'sitzt'];
+const AZB_START = '2026-08-31', AZB_SCHOOL = '2026-09-23', AZB_THU = '2026-10-01'; // Mo der 1. Woche (Start Di 01.09.2026), Berufsschule ab, Do-Schule im 2-Wochen-Takt ab
+const AZB_PLAN = []; AZB_TOPICS.forEach(([id, name, tasks]) => tasks.forEach((task, i) => AZB_PLAN.push({ id, name, i, task, tasks })));
+const azbDays = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 864e5);
+const azbWeek = ds => Math.floor(azbDays(AZB_START, ds) / 7) + 1;
+const azbMon = w => addDay(AZB_START, (w - 1) * 7);
+const azbCur = () => Math.max(1, azbWeek(today()));
+const azbPlan = w => AZB_PLAN[Math.min(Math.max(w, 1), AZB_PLAN.length) - 1];
+const azbWho = () => (D.team.find(m => /azubi/i.test(m.role || '')) || { name: 'Ainoa' }).name;
+function azbD() { if (!D.azb) D.azb = { status: {}, weeks: {}, clean: {}, begleit: {}, ferien: {}, savedAt: 0 }; return D.azb; }
+const azbS = (id, i) => azbD().status[id + '#' + i] || 0;
+function azbSave() { azbD().savedAt = Date.now(); store(true); admin(); }
+function azbHoliday(ds) { return ((D.cal && D.cal.school) || []).some(f => f && f.from <= ds && ds <= f.to); }
+function azbWeekDays(w) {
+  const mo = azbMon(w), fer = !!azbD().ferien[w], out = [];
+  for (let k = 1; k <= 5; k++) { const ds = addDay(mo, k), wd = wdMon(ds); let school = false; // wdMon: 0 = Mo
+    if (!fer && ds >= AZB_SCHOOL && !azbHoliday(ds)) { if (wd === 2) school = true; if (wd === 3 && ds >= AZB_THU && (azbDays(AZB_THU, ds) / 7) % 2 === 0) school = true; }
+    out.push({ ds, wd, school, sat: wd === 5 }); }
+  return out;
+}
+function azbSlots(d, p) {
+  if (d.school) return [['ganztags', 'Berufsschule', 'school']];
+  if (d.sat) return [['08:00–08:15', 'Ankommen, Arbeitsplatz einrichten (Morgen-Check)'], ['08:15–13:00', 'Kunden empfangen, waschen, assistieren · Fokus der Woche anwenden'], ['13:00–14:00', 'Ordnung & Sauberkeit · komplette Checkliste, Wochenabschluss', 'clean']];
+  return [['09:00–09:15', 'Ankommen, Arbeitsplatz einrichten (Morgen-Check)'], ['09:15–13:00', 'Kunden empfangen, waschen, assistieren · Fokus der Woche anwenden'], ['13:00–14:00', 'Mittagspause', 'pause'],
+    ['14:00–14:45', d.wd === 4 ? 'Wochencheck mit Sevinc (15 Min.), danach Übung der Woche' : 'Lernblock: ' + p.task], ['14:45–17:00', 'Kunden betreuen, waschen, föhnen, assistieren'], ['17:00–18:00', 'Ordnung & Sauberkeit · komplette Checkliste', 'clean']];
+}
+const azbPct = () => Math.round(AZB_PLAN.reduce((s, x) => s + azbS(x.id, x.i), 0) / (AZB_PLAN.length * 3) * 100);
+const azbSoll = () => Math.round(Math.min(azbCur() - 1, AZB_PLAN.length) / AZB_PLAN.length * 100);
+const azbBehind = () => AZB_PLAN.filter((x, k) => k + 1 < azbCur() && azbS(x.id, x.i) < 2);
+const azbWorkday = ds => { const d = azbWeekDays(azbWeek(ds)).find(x => x.ds === ds); return d && !d.school ? d : null; };
+function azbStreak() { let n = 0, ds = today(); for (let k = 0; k < 90; k++) { if (azbWorkday(ds)) { if ((azbD().clean[ds] || []).length >= AZB_ORDNUNG.length) n++; else if (ds !== today()) break; } ds = addDay(ds, -1); } return n; }
+function azbSet(id, i, v) { azbD().status[id + '#' + i] = v; logx(`Ausbildung: ${id} „${AZB_PLAN.find(x => x.id === id && x.i === i).task.slice(0, 40)}…“ → ${AZB_ST[v]}`); azbSave(); }
+function azbW(k, v, quiet) { const z = azbD(), w = A.azw; z.weeks[w] = z.weeks[w] || {}; z.weeks[w][k] = v; z.savedAt = Date.now(); if (quiet) store(true); else azbSave(); }
+function azbTog(ds, i) { const a = azbD().clean[ds] = azbD().clean[ds] || []; const j = a.indexOf(i); if (j >= 0) a.splice(j, 1); else a.push(i); azbSave(); }
+function azbBeg(i) { azbD().begleit[i] = !azbD().begleit[i]; azbSave(); }
+const azbSeg = (cur, n, fn) => `<div class="seg azb-seg">${n.map((l, k) => `<button class="${k === cur ? 'on' : ''}" onclick="${fn(k)}">${l}</button>`).join('')}</div>`;
+const azbBar = pct => `<div class="azb-bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>`;
+const azbDs = ds => WDS[wdMon(ds)] + ', ' + dfmt(ds);
+function aAzb() {
+  if (!A.azw) A.azw = azbCur(); if (!A.azd) A.azd = today();
+  const z = azbD(), w = A.azw, cur = azbCur(), p = azbPlan(w), ist = azbPct(), soll = azbSoll(), rs = azbBehind(), W = z.weeks[w] || {}, name = esc(azbWho());
+  const days = azbWeekDays(w), wd = azbWorkday(A.azd), done = z.clean[A.azd] || [];
+  const goals = p.tasks.map((t, i) => `<div class="row azb-row${i === p.i ? ' now' : ''}"><div class="t azb-t">${esc(t)}</div>${azbSeg(azbS(p.id, i), AZB_ST, k => `azbSet('${p.id}',${i},${k})`)}</div>`).join('');
+  const plan = days.map(d => `<div class="azb-day${d.ds === today() ? ' today' : ''}"><div class="t">${azbDs(d.ds)}${d.school ? ' <span class="chip">Berufsschule</span>' : ''}</div>${azbSlots(d, p).map(([t, x, c]) => `<div class="azb-slot ${c || ''}"><span>${t}</span><span>${esc(x)}</span></div>`).join('')}</div>`).join('');
+  const stars = [['lernen', 'Lernfortschritt'], ['motivation', 'Motivation & Mitdenken'], ['ordnung', 'Ordnung & Sauberkeit']].map(([k, l]) => `<div class="row"><div class="t">${l}</div>${azbSeg((W[k] || 0) - 1, ['1', '2', '3', '4', '5'], i => `azbW('${k}',${i + 1})`)}</div>`).join('');
+  const cd = days.filter(d => !d.school), cdn = cd.filter(d => (z.clean[d.ds] || []).length >= AZB_ORDNUNG.length).length;
+  const checks = !wd ? `<div class="row"><div class="small">${azbWeekDays(azbWeek(A.azd)).some(d => d.ds === A.azd) ? 'Berufsschule, keine Checkliste.' : 'Salon geschlossen.'}</div></div>`
+    : AZB_ORDNUNG.map((t, i) => `<label class="row azb-chk${done.includes(i) ? ' done' : ''}"><input type="checkbox" ${done.includes(i) ? 'checked' : ''} onchange="azbTog('${A.azd}',${i})"><span>${esc(t)}</span></label>`).join('');
+  const behind = rs.slice(0, 8).map(x => `<div class="row azb-row"><div class="t azb-t"><span class="chip">${x.id}</span> ${esc(x.task)}</div>${azbSeg(azbS(x.id, x.i), AZB_ST, k => `azbSet('${x.id}',${x.i},${k})`)}</div>`).join('');
+  let acc = 0;
+  const table = AZB_TOPICS.map(([id, nm, tasks]) => { const a = acc + 1, b = acc + tasks.length; acc = b; const pc = Math.round(tasks.reduce((s, _, i) => s + azbS(id, i), 0) / (tasks.length * 3) * 100);
+    return `<details class="azb-top${cur >= a && cur <= b ? ' now' : ''}"><summary><span class="chip">${id}</span><span class="azb-nm">${esc(nm)}</span><span class="small">W${a}–${b}</span><span class="azb-pc">${azbBar(pc)}<span class="small">${pc} %</span></span></summary>
+      ${tasks.map((t, i) => `<div class="row azb-row"><div class="t azb-t"><span class="small">W${a + i}</span> ${esc(t)}</div>${azbSeg(azbS(id, i), AZB_ST, k => `azbSet('${id}',${i},${k})`)}</div>`).join('')}</details>`; }).join('');
+  const last = z.weeks[w - 1];
+  return `<div class="ahead" style="margin:20px 0 4px"><div class="mnav"><button class="btn" onclick="A.azw=Math.max(1,A.azw-1);admin()">‹</button><b>Woche ${w}</b><span class="small">${dfmt(addDay(azbMon(w), 1))} – ${dfmt(addDay(azbMon(w), 5))}</span><button class="btn" onclick="A.azw++;admin()">›</button>${w !== cur ? `<button class="btn" onclick="A.azw=azbCur();admin()">Diese Woche</button>` : ''}</div>
+    <div class="btns" style="margin:0"><button class="btn pri" onclick="azbSend('stand')">Fortschritt an ${name}</button><button class="btn" onclick="azbSend('plan')">Arbeitsplan &amp; Checkliste</button></div></div>
+   <div class="kpis"><div class="kpi"><div class="l">Ausbildungswoche</div><div class="v">${cur} <span style="font-size:13px;font-weight:500;color:var(--muted)">von ${AZB_PLAN.length}</span></div></div>
+    <div class="kpi"><div class="l">Gelernt · Soll ${soll} %</div><div class="v" style="color:${ist >= soll ? 'var(--ok)' : 'var(--warn)'}">${ist} %</div></div>
+    <div class="kpi"><div class="l">Nachholen</div><div class="v" style="color:${rs.length ? 'var(--bad)' : 'var(--ok)'}">${rs.length || 'Nichts'}</div></div>
+    <div class="kpi"><div class="l">Ordnung in Folge komplett</div><div class="v">${azbStreak()} Tage</div></div></div>
+   <div class="gt">Fokus der Woche · ${esc(p.id)} ${esc(p.name)}</div><div class="group"><div class="row"><div class="t azb-focus">${esc(p.task)}</div></div>${goals}</div>
+   <div class="gt">Wochencheck mit Sevinc · Freitag 14 Uhr</div><div class="group">${stars}
+    <div class="row"><div class="small">Checkliste abends komplett: ${cdn} von ${cd.length} Tagen${last && last.ziel ? ' · Ziel aus Woche ' + (w - 1) + ': ' + esc(last.ziel) : ''}</div></div>
+    <div class="row" style="display:block"><textarea class="azb-ta" rows="2" placeholder="Rückmeldung: was lief gut, was wurde vergessen?" oninput="azbW('notiz',this.value,1)">${esc(W.notiz || '')}</textarea>
+     <textarea class="azb-ta" rows="2" placeholder="Ziel für nächste Woche (sagt ${name} selbst)" oninput="azbW('ziel',this.value,1)">${esc(W.ziel || '')}</textarea></div>
+    <label class="row azb-chk${W.bericht ? ' done' : ''}"><input type="checkbox" ${W.bericht ? 'checked' : ''} onchange="azbW('bericht',this.checked)"><span>Berichtsheft dieser Woche geschrieben und unterschrieben</span></label></div>
+   <div class="ahead" style="margin:22px 4px 0"><div class="gt" style="margin:0">Ordnung &amp; Sauberkeit · ${wd && wd.sat ? '13–14 Uhr' : '17–18 Uhr'}</div><div class="mnav"><button class="btn" onclick="A.azd=addDay(A.azd,-1);admin()">‹</button><span class="small">${azbDs(A.azd)}</span><button class="btn" onclick="A.azd=addDay(A.azd,1);admin()">›</button>${A.azd !== today() ? `<button class="btn" onclick="A.azd=today();admin()">Heute</button>` : ''}</div></div>
+   <div class="group">${wd ? azbBar(done.length / AZB_ORDNUNG.length * 100) : ''}${checks}</div>
+   <div class="gt">Arbeitsplan ${name} · Woche ${w}</div><div class="azb-days">${plan}</div>
+   <label class="small azb-fer"><input type="checkbox" ${z.ferien[w] ? 'checked' : ''} onchange="azbD().ferien[${w}]=this.checked;azbSave()"> Berufsschule fällt diese Woche aus (Schulferien aus der Personalplanung werden automatisch berücksichtigt)</label>
+   ${rs.length ? `<div class="gt">Nachholen (${rs.length})</div><div class="group">${behind}${rs.length > 8 ? `<div class="row"><div class="small">+ ${rs.length - 8} weitere im Ausbildungsplan</div></div>` : ''}</div>` : ''}
+   <details class="tech"${A.azp ? ' open' : ''} ontoggle="A.azp=this.open"><summary>Ausbildungsplan 1.–18. Monat <span>(Ausbildungstafel Friseur/in, Stand August 2023)</span></summary>${table}
+    <div class="gt">Läuft die ganze Ausbildung mit</div><div class="group">${AZB_BEGLEIT.map((t, i) => `<label class="row azb-chk${z.begleit[i] ? ' done' : ''}"><input type="checkbox" ${z.begleit[i] ? 'checked' : ''} onchange="azbBeg(${i})"><span>${esc(t)}</span></label>`).join('')}</div>
+    <p class="small">Ab dem 19. Monat: moderne Schneidetechniken, Bart und Rasur, Hochsteckfrisuren, Farbkorrekturen, Make-up für Anlässe, Kasse und Inventur, Teamarbeit, Marketing sowie eine Wahlqualifikation.</p></details>`;
+}
+
+/* ---------- Kleiner PDF-Baukasten (Helvetica, A4, ohne Fremdbibliothek) ---------- */
+const PDF_W = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+const PDF_MAP = { '–': 0x96, '—': 0x97, '„': 0x84, '“': 0x93, '”': 0x94, '‘': 0x91, '’': 0x92, '…': 0x85, '›': 0x9B, '‹': 0x8B, '€': 0x80, '•': 0x95 };
+function pdfCh(c) { const k = c.charCodeAt(0); return PDF_MAP[c] || (k < 256 ? k : 63); }
+function pdfWid(s, size, bold) { let w = 0; for (const c of s) { const k = pdfCh(c); w += k >= 32 && k < 127 ? PDF_W[k - 32] : /[äöüÄÖÜ]/.test(c) ? 556 + (/[ÄÖÜ]/.test(c) ? 140 : 0) : k === 0xDF ? 611 : 556; } return w * size / 1000 * (bold ? 1.06 : 1); }
+function pdfNew() {
+  const P = { pages: [], cur: null, y: 0, M: 48 };
+  P.page = () => { P.cur = []; P.pages.push(P.cur); P.y = 56; };
+  P.need = h => { if (P.y + h > 800) P.page(); };
+  const col = c => (c || [0.09, 0.09, 0.1]).map(v => v.toFixed(3)).join(' ');
+  const enc = s => Array.from(String(s), c => { const k = pdfCh(c); const ch = String.fromCharCode(k); return ch === '(' || ch === ')' || ch === '\\' ? '\\' + ch : ch; }).join('');
+  P.txt = (x, y, s, size, bold, c) => P.cur.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${col(c)} rg ${x.toFixed(1)} ${(842 - y).toFixed(1)} Td (${enc(s)}) Tj ET`);
+  P.rect = (x, y, w, h, c, stroke) => P.cur.push(stroke ? `${col(c)} RG 0.8 w ${x.toFixed(1)} ${(842 - y - h).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re S` : `${col(c)} rg ${x.toFixed(1)} ${(842 - y - h).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f`);
+  P.wrap = (s, size, max, bold) => { const out = []; let line = ''; String(s).split(/\s+/).forEach(wd => { const t = line ? line + ' ' + wd : wd; if (pdfWid(t, size, bold) > max && line) { out.push(line); line = wd; } else line = t; }); if (line) out.push(line); return out; };
+  P.para = (s, o = {}) => { const size = o.size || 10, x = P.M + (o.indent || 0), lh = size * 1.38, lines = P.wrap(s, size, 595 - x - P.M, o.bold); P.need(lines.length * lh); lines.forEach(l => { P.y += lh; P.txt(x, P.y, l, size, o.bold, o.color); }); P.y += o.after || 0; };
+  P.bar = (pct, w) => { P.need(10); P.y += 4; P.rect(P.M, P.y, w, 6, [0.91, 0.89, 0.86]); P.rect(P.M, P.y, w * Math.max(0, Math.min(1, pct / 100)), 6, [0.6, 0.37, 0.19]); P.y += 8; };
+  P.box = (s, size = 10, checked) => { const lines = P.wrap(s, size, 595 - 2 * P.M - 18), lh = size * 1.38; P.need(lines.length * lh + 4); P.y += 4; P.rect(P.M, P.y + 1, 9, 9, [0.4, 0.4, 0.4], true); if (checked) P.rect(P.M + 2, P.y + 3, 5, 5, [0.6, 0.37, 0.19]); lines.forEach((l, i) => P.txt(P.M + 18, P.y + 9 + i * lh, l, size)); P.y += lines.length * lh; };
+  P.line = () => { P.need(8); P.y += 6; P.rect(P.M, P.y, 595 - 2 * P.M, 0.6, [0.85, 0.85, 0.85]); P.y += 2; };
+  P.head = (t, sub) => { P.y = 40; P.rect(0, 0, 595, 6, [0.92, 0.80, 0.64]); P.txt(P.M, P.y + 18, 'SVNC HAIR & BEAUTY · AUSBILDUNG', 8, true, [0.6, 0.37, 0.19]); P.y += 22; P.para(t, { size: 18, bold: true }); if (sub) P.para(sub, { size: 9.5, color: [0.38, 0.38, 0.42], after: 6 }); };
+  P.h = t => { P.need(40); P.y += 10; P.para(t, { size: 12, bold: true, after: 2 }); };
+  P.build = () => { const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'], kids = [];
+    P.pages.forEach((ops, i) => { const foot = `BT /F1 8 Tf 0.5 0.5 0.5 rg 48 24 Td (${'Seite ' + (i + 1) + ' von ' + P.pages.length}) Tj ET`, s = ops.concat(foot).join('\n');
+      objs.push(`<< /Length ${s.length} >>\nstream\n${s}\nendstream`); const c = objs.length; objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${c} 0 R >>`); kids.push(objs.length + ' 0 R'); });
+    objs[1] = `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${kids.length} >>`;
+    let out = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'; const off = []; objs.forEach((o, i) => { off.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+    const xr = out.length; out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + off.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF`;
+    const b = new Uint8Array(out.length); for (let i = 0; i < out.length; i++) b[i] = out.charCodeAt(i) & 255; return b; };
+  P.page(); return P;
+}
+function azbPdfStand(w) {
+  const z = azbD(), name = azbWho(), p = azbPlan(w), W = z.weeks[w] || {}, ist = azbPct(), soll = azbSoll(), P = pdfNew();
+  P.head('Ausbildungsstand ' + name, `Friseurin, 1. Lehrjahr · Ausbildungswoche ${azbCur()} von ${AZB_PLAN.length} bis zur Zwischenprüfung · Stand ${dfmt(today())}`);
+  P.para(`Gelernt: ${ist} %  (Plan bis heute: ${soll} %)`, { size: 11, bold: true }); P.bar(ist, 595 - 2 * P.M);
+  P.h(`Fokus Woche ${w}: ${p.id} ${p.name}`); P.para(p.task, { size: 10.5 });
+  const sc = [['lernen', 'Lernfortschritt'], ['motivation', 'Motivation & Mitdenken'], ['ordnung', 'Ordnung & Sauberkeit']].filter(([k]) => W[k]);
+  if (sc.length || W.notiz || W.ziel) { P.h('Wochencheck mit Sevinc'); sc.forEach(([k, l]) => P.para(`${l}: ${W[k]} von 5`, { size: 10 }));
+    if (W.notiz) P.para('Rückmeldung: ' + W.notiz, { size: 10 }); if (W.ziel) P.para('Dein Ziel für nächste Woche: ' + W.ziel, { size: 10, bold: true }); }
+  const rs = azbBehind(); if (rs.length) { P.h('Bitte nachholen'); rs.forEach(x => P.box(`${x.id} · ${x.task} (${AZB_ST[azbS(x.id, x.i)]})`, 9.5)); }
+  P.h('Ausbildungsplan 1.–18. Monat'); let acc = 0;
+  AZB_TOPICS.forEach(([id, nm, tasks]) => { const a = acc + 1, b = acc + tasks.length; acc = b; const pc = Math.round(tasks.reduce((s, _, i) => s + azbS(id, i), 0) / (tasks.length * 3) * 100);
+    P.need(46); P.y += 6; P.para(`${id}  ${nm}  ·  Woche ${a}–${b}  ·  ${pc} %`, { size: 10, bold: true }); P.bar(pc, 160);
+    tasks.forEach((t, i) => P.para(`• ${t}  (${AZB_ST[azbS(id, i)]})`, { size: 9, indent: 10, color: azbS(id, i) === 3 ? [0.12, 0.48, 0.23] : [0.27, 0.27, 0.27] })); });
+  P.y += 10; P.para('Stufen: offen · gezeigt (Sevinc hat es gezeigt) · geübt (du hast es mehrmals gemacht) · sitzt (du kannst es sicher und selbständig).', { size: 8.5, color: [0.38, 0.38, 0.42] });
+  return P.build();
+}
+function azbPdfPlan(w) {
+  const name = azbWho(), p = azbPlan(w), P = pdfNew();
+  P.head(`Arbeitsplan ${name} · Woche ${w}`, `${dfmt(addDay(azbMon(w), 1))} – ${dfmt(addDay(azbMon(w), 5))} · Fokus: ${p.id} ${p.name}`);
+  P.para('Diese Woche übst du: ' + p.task, { size: 11, bold: true, after: 4 });
+  azbWeekDays(w).forEach(d => { P.need(30); P.y += 8; P.para(WDL[d.wd] + ', ' + dfmt(d.ds) + (d.school ? ' · Berufsschule' : ''), { size: 10.5, bold: true });
+    if (!d.school) azbSlots(d, p).forEach(([t, x, c]) => { const lines = P.wrap(x, 9.5, 595 - 2 * P.M - 82), h = lines.length * 13 + 3; P.need(h); if (c === 'clean') P.rect(P.M - 4, P.y + 2, 595 - 2 * P.M + 8, h, [0.95, 0.90, 0.82]);
+      P.txt(P.M, P.y + 12, t, 9.5, c === 'clean', [0.38, 0.38, 0.42]); lines.forEach((l, i) => P.txt(P.M + 82, P.y + 12 + i * 13, l, 9.5, c === 'clean')); P.y += h; }); });
+  P.h('Morgen-Check'); AZB_MORGEN.forEach(t => P.box(t));
+  P.h('Ordnung & Sauberkeit (Di–Fr 17–18 Uhr, Sa 13–14 Uhr)'); AZB_ORDNUNG.forEach(t => P.box(t));
+  P.y += 10; P.para('Die letzte Stunde gehört Ordnung & Sauberkeit. Erst wenn alles abgehakt ist, ist Feierabend. Ist ein Kunde da, geht der Kunde vor, der Lernblock wird am selben Tag nachgeholt.', { size: 9, color: [0.38, 0.38, 0.42] });
+  return P.build();
+}
+async function azbSend(kind) {
+  const w = A.azw || azbCur(), name = azbWho(), fn = kind === 'plan' ? `Arbeitsplan_${name}_Woche_${w}.pdf` : `Ausbildungsstand_${name}_${today()}.pdf`;
+  let f; try { f = new File([kind === 'plan' ? azbPdfPlan(w) : azbPdfStand(w)], fn, { type: 'application/pdf' }); } catch (e) { alert('PDF konnte nicht erstellt werden: ' + e.message); return; }
+  const text = kind === 'plan' ? `Hallo ${name}, hier ist dein Arbeitsplan für Woche ${w} mit der Checkliste. Lg Sevinc` : `Hallo ${name}, hier ist dein aktueller Ausbildungsstand. Lg Sevinc`;
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: fn, text });
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = fn; document.body.appendChild(a); a.click(); a.remove(); }
+    logx(`Ausbildung: ${kind === 'plan' ? 'Arbeitsplan Woche ' + w : 'Ausbildungsstand'} als PDF geteilt`); store();
+  } catch (e) { if (e.name !== 'AbortError') alert('Teilen nicht möglich: ' + e.message); }
+}
 
 /* ---------- Krank (nur Salonleitung; ganze und halbe Tage, keine Gründe) ---------- */
 function sickDaysMap(p) { // Datum -> 1 / 0,5 (nur Arbeitstage laut Plan)
@@ -1016,6 +1205,7 @@ function mergeObj(o) {
   if (td && Array.isArray(td.team) && td.team.length && (!D.team.length || (td.at || 0) > (D.teamAt || 0))) { D.team = td.team; if (td.cal) D.cal = td.cal; if (Array.isArray(td.hours)) D.hours = td.hours; D.snap = td.snap || D.snap || null; D.teamAt = td.at || 1; n++; }
   if (td && (td.planAt || 0) > (D.planAt || 0)) D.planAt = td.planAt;
   if (o.vacAdj) { const b = JSON.stringify(D.vacAdj); D.vacAdj = mergeAdj(D.vacAdj, o.vacAdj); if (JSON.stringify(D.vacAdj) !== b) n++; }
+  if (o.azb && typeof o.azb === 'object' && (o.azb.savedAt || 0) > ((D.azb && D.azb.savedAt) || 0)) { D.azb = o.azb; n++; } // Ausbildung: neuere Fassung gewinnt
   const seen = new Set(D.log.map(l => l.ts + l.x)); (o.log || []).forEach(l => { if (!seen.has(l.ts + l.x)) D.log.push(l); }); D.log.sort((a, b) => a.ts - b.ts);
   if (D.log.length > 3000) D.log.splice(0, D.log.length - 3000);
   return n;
